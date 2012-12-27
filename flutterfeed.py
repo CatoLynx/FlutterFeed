@@ -21,44 +21,44 @@ else:
 	if(gui):
 		window_id = x_display.get_input_focus().focus.id
 
-import stuff
-import config
-import userconfig
-from functions import *
-import plugins
-import urwid
-import thread
-import locale
-import traceback
-import sys
+from flutterfeed_functions import *
+import flutterfeed_classes as classes
+import flutterfeed_config as config
+import flutterfeed_plugins as plugins
+import flutterfeed_strings as strings
 import argparse
+import locale
+import sys
+import thread
+import traceback
 import tweepy
+import urwid
 #import urwid.html_fragment
 
 locale.setlocale(locale.LC_ALL, '')
 
 parser = argparse.ArgumentParser(description = config.system.client_description)
-parser.add_argument('-nb', '--nobackfill', action = 'store_true', help = userconfig.strings.args_nobackfill)
-parser.add_argument('-m', '--manual', action = 'store_true', help = userconfig.strings.args_manual)
-parser.add_argument('-t', '--tweet', help = userconfig.strings.args_tweet)
-parser.add_argument('-k', '--keywords', help = userconfig.strings.args_keywords)
-parser.add_argument('-u', '--users', help = userconfig.strings.args_users)
-parser.add_argument('-l', '--locations', help = userconfig.strings.args_locations)
-parser.add_argument('-d', '--database', help = userconfig.strings.args_database)
-parser.add_argument('-a', '--account', help = userconfig.strings.args_account)
+parser.add_argument('-nb', '--nobackfill', action = 'store_true', help = strings.args_nobackfill)
+parser.add_argument('-m', '--manual', action = 'store_true', help = strings.args_manual)
+parser.add_argument('-t', '--tweet', help = strings.args_tweet)
+parser.add_argument('-k', '--keywords', help = strings.args_keywords)
+parser.add_argument('-u', '--users', help = strings.args_users)
+parser.add_argument('-l', '--locations', help = strings.args_locations)
+parser.add_argument('-d', '--database', help = strings.args_database)
+parser.add_argument('-a', '--account', help = strings.args_account)
 args = parser.parse_args()
 
 def main():
 	global parser
 	global args
-	client = stuff.Client(ui, args, gui, x_display, window_id)
+	client = classes.Client(ui, args, gui, x_display, window_id)
 	client.login()
 	if(args.tweet is not None):
 		try:
 			client.api.update_status(args.tweet)
 		except tweepy.error.TweepError, err:
-			print red(userconfig.error.api_error % err)
-		raise stuff.ClientQuit
+			print red(strings.api_error % err)
+		raise classes.ClientQuit
 	thread.start_new_thread(client.statusbar_update, ())
 	client.start_ui()
 	if not args.manual:
@@ -70,10 +70,10 @@ plugins.on_init()
 #urwid.html_fragment.screenshot_init([(200, 75)], [])
 ui = urwid.raw_display.Screen()
 # ui.set_terminal_properties(colors = 256)
-ui.register_palette(userconfig.var.palette)
+ui.register_palette(config.var.palette)
 try:
 	ui.run_wrapper(main)
-except stuff.ClientQuit:
+except classes.ClientQuit:
 	sys.exit()
 except KeyboardInterrupt:
 	pass

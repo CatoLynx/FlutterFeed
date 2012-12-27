@@ -3,24 +3,24 @@
 # Class definitions and stuff like that for Mezgrman's CLI Twitter client.
 # © 2012 Mezgrman.
 
-import config
-import userconfig
-from functions import *
-import plugins
-import urwid
-import tweepy
-import sys
+from flutterfeed_functions import *
+from ssl import SSLError
+import flutterfeed_config as config
+import flutterfeed_plugins as plugins
+import flutterfeed_strings as strings
+import base64
+import os
+import pickle
+import re
 import sqlite3
+import sys
 import time
 import traceback
-import re
-import os
-import twitlonger
+import tweepy
 import twextender
-import pickle
-import base64
+import twitlonger
 import urllib2
-from ssl import SSLError
+import urwid
 
 try:
 	import pynotify
@@ -88,7 +88,7 @@ class Dialog(urwid.WidgetWrap):
 			button_widgets.append(urwid.AttrMap(urwid.Button(button, self._action), attr[1], attr[2]))
 		button_grid_width = ((max_button_width + config.geometry.button_h_spacing) * len(buttons) + 1)
 		width = message_width if message_width > button_grid_width else button_grid_width
-		height = (len(lines) + 2 + (config.geometry.dialog_padding * 2))
+		height = (len(lines) + 3 + (config.geometry.dialog_padding * 2))
 		msg_widget = urwid.Padding(urwid.Text(msg, 'center'), 'center', width - (config.geometry.dialog_padding * 2))
 		button_grid = urwid.GridFlow(button_widgets, max_button_width, config.geometry.button_h_spacing, config.geometry.button_v_spacing, 'center')
 		widget_list = [msg_widget]
@@ -263,7 +263,7 @@ class Client:
 		time.sleep(config.var.verifier_prompt_delay)
 		verifier = ""
 		while(verifier == ""):
-			verifier = raw_input(userconfig.strings.verifier_prompt)
+			verifier = raw_input(strings.verifier_prompt)
 		try:
 			auth.get_access_token(verifier)
 		except tweepy.error.TweepError, err:
@@ -292,7 +292,7 @@ class Client:
 			self.auth.set_access_token(access_token_key, access_token_secret)
 			self.api = tweepy.API(self.auth, retry_count = config.system.api_retry_count, retry_delay = config.system.api_retry_delay, retry_errors = config.system.api_retry_errors)
 		except tweepy.error.TweepError, err:
-			print red(userconfig.error.api_error % err)
+			print red(strings.api_error % err)
 			sys.exit(1)
 		
 		self.twitlonger_api = twitlonger.API(config.system.twitlonger_application_name, config.system.twitlonger_api_key)
@@ -355,16 +355,16 @@ class Client:
 		if(not self.has_focus()):
 			frequency, duration, status, message, event = plugins.on_notification(self, frequency, duration, status, message, event)
 			self.notification_count += 1
-			self.set_title(userconfig.strings.window_title_notifications % {'username': self.me.screen_name, 'name': self.name, 'version': self.version, 'notifications': self.notification_count})
+			self.set_title(strings.window_title_notifications % {'username': self.me.screen_name, 'name': self.name, 'version': self.version, 'notifications': self.notification_count})
 			if(config.var.popups and self.popup_notifications):
 				if(status):
 					title = u"@" + status.user.screen_name
 					body = status.text
 				elif(message):
-					title = userconfig.strings.notification_title % (self.name, self.me.screen_name)
-					body = userconfig.strings.message_popup_notification % message.sender.screen_name
+					title = strings.notification_title % (self.name, self.me.screen_name)
+					body = strings.message_popup_notification % message.sender.screen_name
 				elif(event):
-					title = userconfig.strings.notification_title % (self.name, self.me.screen_name)
+					title = strings.notification_title % (self.name, self.me.screen_name)
 					body = event
 				n = pynotify.Notification(title, body, os.path.join(self.path, config.system.notification_icon))
 				n.show()
@@ -373,7 +373,7 @@ class Client:
 	
 	def reset_notifications(self):
 		self.notification_count = 0
-		self.set_title(userconfig.strings.window_title_no_notifications % {'username': self.me.screen_name, 'name': self.name, 'version': self.version})
+		self.set_title(strings.window_title_no_notifications % {'username': self.me.screen_name, 'name': self.name, 'version': self.version})
 	
 	def start_ui(self):
 		self.me = self.api.me()
@@ -386,7 +386,7 @@ class Client:
 		self.redraw()
 		update = self.check_for_update()
 		if(update[0]):
-			self.info_dialog(userconfig.strings.update_available % (self.name, update[1], update[2]))
+			self.info_dialog(strings.update_available % (self.name, update[1], update[2]))
 		if(not self.args.nobackfill and not self.stream_keywords and not self.stream_user_ids and not self.stream_locations):
 			self.backfill(count = self.feed_height)
 	
@@ -417,7 +417,7 @@ class Client:
 	def line_break(self, text, prefix = ""):
 		if(len(prefix + text) > self.width):
 			breakpoint = (self.width - len(prefix) - 1)
-			indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+			indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 			temp = list(text)
 			_range = range(((breakpoint - config.var.linebreak_max_searchback) + 1), (breakpoint + 1))
 			_range.reverse()
@@ -447,7 +447,7 @@ class Client:
 				self.redraw_from_thread = True
 				return {'button': popup.b_pressed, 'texts': popup.edit_texts, 'selected': popup.selected}
 	
-	def notification(self, msg, timeout = userconfig.var.default_notification_timeout):
+	def notification(self, msg, timeout = config.var.default_notification_timeout):
 		self.redraw_from_thread = False
 		popup = Notification(msg, ('dialog',), self.display)
 		self.ui.draw_screen(self.dim, popup.render(self.dim, True))
@@ -456,39 +456,39 @@ class Client:
 		return
 	
 	def yes_no_dialog(self, msg, allow_esc = False):
-		result = self.dialog(msg, [userconfig.strings.button_yes, userconfig.strings.button_no], None, None, allow_esc)
-		return (result['button'] == userconfig.strings.button_yes)
+		result = self.dialog(msg, [strings.button_yes, strings.button_no], None, None, allow_esc)
+		return (result['button'] == strings.button_yes)
 	
 	def info_dialog(self, msg, allow_esc = False):
-		result = self.dialog(msg, [userconfig.strings.button_ok], None, None, allow_esc)
-		return (result['button'] == userconfig.strings.button_ok)
+		result = self.dialog(msg, [strings.button_ok], None, None, allow_esc)
+		return (result['button'] == strings.button_ok)
 	
 	def input_dialog(self, msg, caption, allow_esc = True):
-		result = self.dialog(msg, [userconfig.strings.button_ok], [(caption, u"")], None, allow_esc)
-		return ((result['button'] == userconfig.strings.button_ok), result['texts'][0])
+		result = self.dialog(msg, [strings.button_ok], [(caption, u"")], None, allow_esc)
+		return ((result['button'] == strings.button_ok), result['texts'][0])
 	
 	def list_dialog(self, msg, list_items, allow_esc = True):
-		result = self.dialog(msg, [userconfig.strings.button_ok], None, [item.replace("\n", " ") for item in list_items], allow_esc)
-		return ((result['button'] == userconfig.strings.button_ok or result['button'] == "List"), result['selected'])
+		result = self.dialog(msg, [strings.button_ok], None, [item.replace("\n", " ") for item in list_items], allow_esc)
+		return ((result['button'] == strings.button_ok or result['button'] == "List"), result['selected'])
 	
 	def event_loop(self):
 		keys = True
 		while(True):
-			self.cmdline_content.set_caption(('cmdline bold', userconfig.strings.prompt % (140 - len(self.cmdline_content.get_edit_text()))))
+			self.cmdline_content.set_caption(('cmdline bold', strings.prompt % (140 - len(self.cmdline_content.get_edit_text()))))
 			if(keys):
 				self.redraw()
 			keys = self.ui.get_input()
 			if("window resize" in keys):
 				self.dim = self.ui.get_cols_rows()
 			elif(config.system.exit_key in keys):
-				if self.yes_no_dialog(userconfig.strings.quit_confirmation):
+				if self.yes_no_dialog(strings.quit_confirmation):
 					raise ClientQuit
 			elif(config.system.submit_key in keys):
 				raw_data = self.cmdline_content.get_edit_text()
 				self.last_command = raw_data
 				if(raw_data != u""):
 					self.cmdline_content.set_edit_text(u"")
-					self.cmdline_content.set_caption(('cmdline bold', userconfig.strings.prompt_loading))
+					self.cmdline_content.set_caption(('cmdline bold', strings.prompt_loading))
 					data_array = raw_data.split()
 					command = data_array[0]
 					has_data = (len(data_array) > 1)
@@ -514,13 +514,13 @@ class Client:
 				self.me_update_interval = 0
 			
 			if(self.me_update_interval + config.system.statusbar_update_interval_right > config.system.statusbar_update_interval_left):
-				countdown = userconfig.strings.countdown_updating
+				countdown = strings.countdown_updating
 			else:
 				m, s = divmod(config.system.statusbar_update_interval_left - self.me_update_interval, 60)
-				countdown = userconfig.strings.countdown % (m, s)
+				countdown = strings.countdown % (m, s)
 			
-			left_text = userconfig.strings.statusbar_left % {'username': self.me.screen_name, 'followers': self.me.followers_count, 'following': self.me.friends_count, 'tweets': self.me.statuses_count, 'favorites': self.me.favourites_count}
-			right_text = userconfig.strings.statusbar_right % {'cached_tweets': self.cached_tweet_count, 'time': time.strftime(userconfig.var.statusbar_time_format), 'countdown': countdown}
+			left_text = strings.statusbar_left % {'username': self.me.screen_name, 'followers': self.me.followers_count, 'following': self.me.friends_count, 'tweets': self.me.statuses_count, 'favorites': self.me.favourites_count}
+			right_text = strings.statusbar_right % {'cached_tweets': self.cached_tweet_count, 'time': time.strftime(config.var.statusbar_time_format), 'countdown': countdown}
 			space = config.var.statusbar_spacing_character * (self.width - (len(left_text) + len(right_text)))
 			self.statusbar_content.set_text(('statusbar bold', left_text + space + right_text))
 			if(self.notification_count > 0 and self.has_focus()):
@@ -538,11 +538,11 @@ class Client:
 			tweet = self.api.update_status(data, in_reply_to_status_id = in_reply_to)
 		except tweepy.error.TweepError, err:
 			if(u"140" in err.reason):
-				if(self.yes_no_dialog(userconfig.strings.use_twitlonger)):
-					if(not(self.me.protected) or (self.me.protected and self.yes_no_dialog(userconfig.strings.twitlonger_protected_account))):
+				if(self.yes_no_dialog(strings.use_twitlonger)):
+					if(not(self.me.protected) or (self.me.protected and self.yes_no_dialog(strings.twitlonger_protected_account))):
 						twitlonger_post = self.twitlonger_api.post_tweet(self.me.screen_name, data, in_reply_to, in_reply_to_user)
 						if(twitlonger_post.error is not None):
-							self.info_dialog(userconfig.error.twitlonger_error % twitlonger_post.error, False)
+							self.info_dialog(strings.twitlonger_error % twitlonger_post.error, False)
 							post = False
 						else:
 							twitlonger_used = True
@@ -555,7 +555,7 @@ class Client:
 					try:
 						tweet = self.api.update_status(data, in_reply_to_status_id = in_reply_to)
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						return False
 					else:
 						if(twitlonger_used):
@@ -563,7 +563,7 @@ class Client:
 				else:
 					return False
 			else:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				return False
 		return tweet"""
 	
@@ -574,11 +574,11 @@ class Client:
 			tweet = self.api.update_status(data, in_reply_to_status_id = in_reply_to)
 		except tweepy.error.TweepError, err:
 			if(u"140" in err.reason):
-				if(self.yes_no_dialog(userconfig.strings.use_twextender)):
-					if(not(self.me.protected) or (self.me.protected and self.yes_no_dialog(userconfig.strings.twextender_protected_account))):
+				if(self.yes_no_dialog(strings.use_twextender)):
+					if(not(self.me.protected) or (self.me.protected and self.yes_no_dialog(strings.twextender_protected_account))):
 						twextender_post = self.twextender_api.post_tweet(self.me.screen_name, data, in_reply_to_user, in_reply_to)
 						if('error' in twextender_post.keys()):
-							self.info_dialog(userconfig.error.twextender_error % twextender_post['error'], False)
+							self.info_dialog(strings.twextender_error % twextender_post['error'], False)
 							post = False
 						else:
 							twextender_used = True
@@ -591,12 +591,12 @@ class Client:
 					try:
 						tweet = self.api.update_status(data, in_reply_to_status_id = in_reply_to)
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						return False
 				else:
 					return False
 			else:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				return False
 		return tweet
 	
@@ -605,9 +605,9 @@ class Client:
 			return False
 		highlighted = (self.is_word_highlighted_text(text) or self.is_user_highlighted(author) or self.is_client_highlighted(source) or self.is_regex_highlighted(text))
 		#text = expand_urls(text)
-		part1 = config.strings.tweet_code_prefix % short_code
+		part1 = strings.tweet_code_prefix % short_code
 		if(author != u""):
-			part2 = config.strings.tweet_prefix % author
+			part2 = strings.tweet_prefix % author
 		else:
 			part2 = u""
 		text = self.line_break(text, (part1 + part2))
@@ -630,8 +630,8 @@ class Client:
 			return False
 		highlighted = (self.is_word_highlighted_text(text) or self.is_user_highlighted(original_author) or self.is_client_highlighted(source) or self.is_regex_highlighted(text))
 		#text = expand_urls(text)
-		part1 = config.strings.tweet_code_prefix % short_code
-		part2 = config.strings.retweet_prefix % (retweeted_by, original_author)
+		part1 = strings.tweet_code_prefix % short_code
+		part2 = strings.retweet_prefix % (retweeted_by, original_author)
 		text = self.line_break(text, (part1 + part2))
 		if(is_mention and favorited):
 			self.feed_lines.append(urwid.Text([('short code', part1), ('author', part2), ('favorite mention', text)]))
@@ -651,9 +651,9 @@ class Client:
 		if(self.is_word_filtered_text(text) or self.is_user_filtered(author) or self.is_regex_filtered(text)):
 			return False
 		#text = expand_urls(text)
-		part1 = config.strings.direct_message_code_prefix % short_code
+		part1 = strings.direct_message_code_prefix % short_code
 		if(author != u""):
-			part2 = config.strings.direct_message_prefix % author
+			part2 = strings.direct_message_prefix % author
 		else:
 			part2 = u""
 		text = self.line_break(text, (part1 + part2))
@@ -666,7 +666,7 @@ class Client:
 			self.redraw()
 	
 	def add_notification(self, text, is_mention, redraw = True):
-		indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+		indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		text = self.line_break(text, indent)
 		if(is_mention):
 			self.feed_lines.append(urwid.Text([indent, ('mention', text)]))
@@ -677,7 +677,7 @@ class Client:
 			self.redraw()
 	
 	def add_warning(self, text, redraw = True):
-		indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+		indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		text = self.line_break(text, indent)
 		self.feed_lines.append(urwid.Text([indent, ('warning', text)]))
 		self.feed_refresh()
@@ -685,7 +685,7 @@ class Client:
 			self.redraw()
 	
 	def add_error(self, text, redraw = True):
-		indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+		indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		text = self.line_break(text, indent)
 		self.feed_lines.append(urwid.Text([indent, ('error', text)]))
 		self.feed_refresh()
@@ -694,7 +694,7 @@ class Client:
 	
 	def add_text(self, text, has_indent = False, color = None, redraw = True):
 		if(has_indent):
-			indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+			indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		else:
 			indent = u""
 		text = self.line_break(text, indent)
@@ -710,14 +710,14 @@ class Client:
 		if(title == u""):
 			block_separator = config.var.block_separator_character * self.width
 		else:
-			if(len(config.strings.block_title_scheme % title) > self.width - 2):
-				cutoff = int(round((len(config.strings.block_title_scheme % title) - (self.width - 2)) / 2))
+			if(len(strings.block_title_scheme % title) > self.width - 2):
+				cutoff = int(round((len(strings.block_title_scheme % title) - (self.width - 2)) / 2))
 				title = title[cutoff:-cutoff]
 			
-			character_count = (self.width - len(config.strings.block_title_scheme % title)) / 2
-			block_separator = config.var.block_separator_character * character_count + (config.strings.block_title_scheme % title) + config.var.block_separator_character * character_count
+			character_count = (self.width - len(strings.block_title_scheme % title)) / 2
+			block_separator = config.var.block_separator_character * character_count + (strings.block_title_scheme % title) + config.var.block_separator_character * character_count
 		
-		indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+		indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		self.feed_lines.append(urwid.Text([indent, (color, block_separator)]))
 		
 		self.feed_refresh()
@@ -726,7 +726,7 @@ class Client:
 			self.redraw()
 	
 	def end_block(self, color, redraw = True):
-		indent = u" " * len(config.strings.tweet_code_prefix % (u" " * config.var.short_code_length))
+		indent = u" " * len(strings.tweet_code_prefix % (u" " * config.var.short_code_length))
 		self.feed_lines.append(urwid.Text([indent, (color, (config.var.block_separator_character * self.width))]))
 		
 		self.feed_refresh()
@@ -1072,7 +1072,7 @@ class Client:
 				status.id, status.user.screen_name, status.text, is_mention = plugins.on_tweet(self, status.id, status.user.screen_name, status.text, is_mention)
 				self.add_tweet(self.get_code(str(status.id), status.user.screen_name, status.text, status, status.in_reply_to_status_id), status.user.screen_name, text, status.source, is_mention, status.favorited)
 			if(is_mention):
-				self.notify(userconfig.var.notify_freq, userconfig.var.notify_dur, status = status)
+				self.notify(config.var.notify_freq, config.var.notify_dur, status = status)
 		
 		self.feed_refresh()
 		if(self.redraw_from_thread):
@@ -1088,7 +1088,7 @@ class Client:
 					for media in message.entities['media']:
 						text = text.replace(media['url'], media['expanded_url'])
 			self.add_direct_message(self.get_code(str(message.id), message.sender.screen_name, message.text, message, None), message.sender.screen_name, text, False)
-			self.notify(userconfig.var.notify_freq, userconfig.var.notify_dur, message = message)
+			self.notify(config.var.notify_freq, config.var.notify_dur, message = message)
 			self.feed_refresh()
 			if(self.redraw_from_thread):
 				self.redraw()
@@ -1096,17 +1096,17 @@ class Client:
 	def process_event(self, event):
 		if(event['source']['screen_name'] != self.me.screen_name and not self.is_user_filtered(event['source']['screen_name'])):
 			if(event['event'] == 'favorite'):
-				event_text = userconfig.strings.favorite_notification % (event['source']['name'], event['source']['screen_name'], html_unescape(event['target_object']['text']))
+				event_text = strings.favorite_notification % (event['source']['name'], event['source']['screen_name'], html_unescape(event['target_object']['text']))
 				self.add_notification(event_text, True)
-				self.notify(userconfig.var.notify_freq, userconfig.var.notify_dur, event = event_text)
+				self.notify(config.var.notify_freq, config.var.notify_dur, event = event_text)
 			elif(event['event'] == 'unfavorite'):
-				event_text = userconfig.strings.unfavorite_notification % (event['source']['name'], event['source']['screen_name'], html_unescape(event['target_object']['text']))
+				event_text = strings.unfavorite_notification % (event['source']['name'], event['source']['screen_name'], html_unescape(event['target_object']['text']))
 				self.add_notification(event_text, True)
-				self.notify(userconfig.var.notify_freq, userconfig.var.notify_dur, event = event_text)
+				self.notify(config.var.notify_freq, config.var.notify_dur, event = event_text)
 			elif(event['event'] == 'follow'):
-				event_text = userconfig.strings.follower_notification % (event['source']['name'], event['source']['screen_name'])
+				event_text = strings.follower_notification % (event['source']['name'], event['source']['screen_name'])
 				self.add_notification(event_text, True)
-				self.notify(userconfig.var.notify_freq, userconfig.var.notify_dur, event = event_text)
+				self.notify(config.var.notify_freq, config.var.notify_dur, event = event_text)
 	
 	def start_stream(self):
 		class StreamListener(tweepy.StreamListener):
@@ -1156,7 +1156,7 @@ class Client:
 				else:
 					streamer.userstream()
 			except SSLError:
-				#self.add_error(userconfig.error.timeout % config.system.stream_reconnect_delay)
+				#self.add_error(strings.timeout % config.system.stream_reconnect_delay)
 				#time.sleep(config.system.stream_reconnect_delay)
 				if(not(self.stream_keywords or self.stream_user_ids or self.stream_locations)):
 					last_tweet_id = self.get_last_data()
@@ -1165,11 +1165,11 @@ class Client:
 					else:
 						last_tweet_id = None
 					self.backfill(since_id = last_tweet_id)
-				#self.add_notification(userconfig.error.stream_reconnecting, False)
-				#self.notification(userconfig.strings.reconnected_after_stream_error)
+				#self.add_notification(strings.stream_reconnecting, False)
+				#self.notification(strings.reconnected_after_stream_error)
 			except:
 				#traceback.print_exc()
-				#self.add_error(userconfig.error.stream_error % config.system.stream_reconnect_delay)
+				#self.add_error(strings.stream_error % config.system.stream_reconnect_delay)
 				#time.sleep(config.system.stream_reconnect_delay)
 				if(not(self.stream_keywords or self.stream_user_ids or self.stream_locations)):
 					last_tweet_id = self.get_last_data()
@@ -1178,30 +1178,30 @@ class Client:
 					else:
 						last_tweet_id = None
 					self.backfill(since_id = last_tweet_id)
-				#self.add_notification(userconfig.error.stream_reconnecting, False)
-				#self.notification(userconfig.strings.reconnected_after_stream_error)
+				#self.add_notification(strings.stream_reconnecting, False)
+				#self.notification(strings.reconnected_after_stream_error)
 	
 	def process_command(self, command, data_array):
 		clear = True
 		has_data = (len(data_array) > 0)
 		data = ' '.join(data_array)
 		
-		if(command == userconfig.commands.logout):
+		if(command == config.commands.logout):
 			self.logout()
 			self.quit()
-		elif(command == userconfig.commands.help):
+		elif(command == config.commands.help):
 			while(True):
 				try:
-					choice = self.list_dialog(config.strings.help_header, [entry[0] for entry in config.strings.help_entries])[1][0]
+					choice = self.list_dialog(strings.help_header, [entry[0] for entry in strings.help_entries])[1][0]
 				except:
 					break
 				else:
-					self.info_dialog("%s\n\n%s" % (config.strings.help_entries[choice][0], config.strings.help_entries[choice][1]))
-		elif(command == userconfig.commands.tweet or (not(userconfig.var.tweet_command_required) and (command[:1] != userconfig.commands.cmd_prefix or (len(command) >= 2 and command[0] == userconfig.commands.cmd_prefix and command[1] == command[0])))):
-			if(command[:1] != userconfig.commands.cmd_prefix):
+					self.info_dialog("%s\n\n%s" % (strings.help_entries[choice][0], strings.help_entries[choice][1]))
+		elif(command == config.commands.tweet or (not(config.var.tweet_command_required) and (command[:1] != config.commands.cmd_prefix or (len(command) >= 2 and command[0] == config.commands.cmd_prefix and command[1] == command[0])))):
+			if(command[:1] != config.commands.cmd_prefix):
 				data = command + ' ' + data
 			
-			if(len(command) >= 2 and command[0] == userconfig.commands.cmd_prefix and command[1] == command[0]):
+			if(len(command) >= 2 and command[0] == config.commands.cmd_prefix and command[1] == command[0]):
 				command = command[1:]
 				data = command + ' ' + data
 			
@@ -1209,9 +1209,9 @@ class Client:
 				tweet = self.post_tweet(data)
 				clear = (tweet != False)
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.retweet):
+		elif(command == config.commands.retweet):
 			if(has_data):
 				short_code = data_array[0]
 				del data_array[0]
@@ -1224,7 +1224,7 @@ class Client:
 						tweet_author = _tweet.retweeted_status.user.screen_name
 						tweet_text = _tweet.retweeted_status.text
 					if(text != ''):
-						data = config.strings.retweet_scheme % (text, tweet_author, html_unescape(tweet_text))
+						data = strings.retweet_scheme % (text, tweet_author, html_unescape(tweet_text))
 						tweet = self.post_tweet(data, in_reply_to = tweet_id, in_reply_to_user = tweet_author)
 						clear = (tweet != False)
 					else:
@@ -1232,17 +1232,17 @@ class Client:
 							self.api.retweet(tweet_id)
 						except tweepy.error.TweepError, err:
 							if("permissible" in err.reason):
-								self.info_dialog(userconfig.error.retweet_failed)
+								self.info_dialog(strings.retweet_failed)
 							else:
-								self.info_dialog(userconfig.error.api_error % err)
+								self.info_dialog(strings.api_error % err)
 								clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.favorite):
+		elif(command == config.commands.favorite):
 			if(has_data):
 				short_code = data_array[0]
 				tweet_data = self.get_data(short_code)
@@ -1254,19 +1254,19 @@ class Client:
 						tweet_text = _tweet.retweeted_status.text
 					try:
 						self.api.create_favorite(tweet_id)
-						tweet_preview = tweet_text if(len(tweet_text) <= userconfig.var.tweet_preview_length) else tweet_text[:userconfig.var.tweet_preview_length] + u" […]"
+						tweet_preview = tweet_text if(len(tweet_text) <= config.var.tweet_preview_length) else tweet_text[:config.var.tweet_preview_length] + u" […]"
 						self.replace_attribute(short_code, [("tweet", "favorite"), ("highlighted", "favorite"), ("mention", "favorite mention")])
-						self.notification(userconfig.strings.favorited % (tweet_preview, tweet_author))
+						self.notification(strings.favorited % (tweet_preview, tweet_author))
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unfavorite):
+		elif(command == config.commands.unfavorite):
 			if(has_data):
 				short_code = data_array[0]
 				tweet_data = self.get_data(short_code)
@@ -1278,63 +1278,63 @@ class Client:
 						tweet_text = _tweet.retweeted_status.text
 					try:
 						self.api.destroy_favorite(tweet_id)
-						tweet_preview = tweet_text if(len(tweet_text) <= userconfig.var.tweet_preview_length) else tweet_text[:userconfig.var.tweet_preview_length] + u" […]"
+						tweet_preview = tweet_text if(len(tweet_text) <= config.var.tweet_preview_length) else tweet_text[:config.var.tweet_preview_length] + u" […]"
 						self.replace_attribute(short_code, [("favorite", "tweet"), ("highlighted", "favorite"), ("favorite mention", "mention")])
-						self.notification(userconfig.strings.unfavorited % (tweet_preview, tweet_author))
+						self.notification(strings.unfavorited % (tweet_preview, tweet_author))
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.follow):
+		elif(command == config.commands.follow):
 			if(has_data):
 				try:
 					self.api.create_friendship(screen_name = data_array[0])
-					self.notification(userconfig.strings.followed % data)
+					self.notification(strings.followed % data)
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unfollow):
+		elif(command == config.commands.unfollow):
 			if(has_data):
 				try:
 					self.api.destroy_friendship(screen_name = data_array[0])
-					self.notification(userconfig.strings.unfollowed % data)
+					self.notification(strings.unfollowed % data)
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.last_tweets):
+		elif(command == config.commands.last_tweets):
 			if(has_data):
 				username = data_array[0]
 			else:
 				username = self.me.screen_name
 			try:
-				last_tweets = self.api.user_timeline(screen_name = username, count = userconfig.var.last_tweet_count)
+				last_tweets = self.api.user_timeline(screen_name = username, count = config.var.last_tweet_count)
 				tweets = []
 				for tweet in last_tweets:
 					tweet.id, tweet.user.screen_name, tweet.text, is_mention = plugins.on_tweet(self, tweet.id, tweet.user.screen_name, tweet.text, False)
 					short_code = self.get_code(str(tweet.id), tweet.user.screen_name, tweet.text, tweet, tweet.in_reply_to_status_id)
-					tweets.append(config.strings.tweet_list_format % (short_code, html_unescape(tweet.text)))
+					tweets.append(strings.tweet_list_format % (short_code, html_unescape(tweet.text)))
 				try:
-					choice = self.list_dialog(userconfig.strings.last_tweets_header % (len(last_tweets), username), tweets)[1][1].split()[0]
+					choice = self.list_dialog(strings.last_tweets_header % (len(last_tweets), username), tweets)[1][1].split()[0]
 				except:
 					pass
 				else:
-					self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.reply, choice))
+					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.profile):
+		elif(command == config.commands.profile):
 			if(has_data):
 				username = data_array[0]
 			else:
@@ -1342,45 +1342,45 @@ class Client:
 			try:
 				user = self.api.get_user(screen_name = username)
 				lines = []
-				lines.append(userconfig.strings.profile_header % (html_unescape(user.name), user.screen_name) + u"\n")
+				lines.append(strings.profile_header % (html_unescape(user.name), user.screen_name) + u"\n")
 				try:
-					lines.append(userconfig.strings.profile_item_bio % html_unescape(unicode(user.description)).replace(u"\n", u" ") + u"\n")
+					lines.append(strings.profile_item_bio % html_unescape(unicode(user.description)).replace(u"\n", u" ") + u"\n")
 				except AttributeError:
 					pass
 				try:
-					lines.append(userconfig.strings.profile_item_location % html_unescape(unicode(user.location)))
+					lines.append(strings.profile_item_location % html_unescape(unicode(user.location)))
 				except AttributeError:
 					pass
 				try:
-					lines.append(userconfig.strings.profile_item_website % html_unescape(unicode(user.url)))
+					lines.append(strings.profile_item_website % html_unescape(unicode(user.url)))
 				except AttributeError:
 					pass
-				lines.append(userconfig.strings.profile_item_followers % unicode(user.followers_count))
-				lines.append(userconfig.strings.profile_item_following % unicode(user.friends_count))
-				lines.append(userconfig.strings.profile_item_tweets % unicode(user.statuses_count))
-				lines.append(userconfig.strings.profile_item_listed % unicode(user.listed_count))
-				lines.append(userconfig.strings.profile_item_lang % user.lang)
+				lines.append(strings.profile_item_followers % unicode(user.followers_count))
+				lines.append(strings.profile_item_following % unicode(user.friends_count))
+				lines.append(strings.profile_item_tweets % unicode(user.statuses_count))
+				lines.append(strings.profile_item_listed % unicode(user.listed_count))
+				lines.append(strings.profile_item_lang % user.lang)
 				try:
-					lines.append(userconfig.strings.profile_item_timezone % user.time_zone)
+					lines.append(strings.profile_item_timezone % user.time_zone)
 				except AttributeError:
 					pass
 				if(user.id == self.me.id):
-					action = self.dialog(u"\n".join(lines), [userconfig.strings.button_ok, userconfig.strings.button_edit_profile], None, None, True)['button']
-					if(action == userconfig.strings.button_edit_profile):
-						entries = self.dialog(userconfig.strings.edit_profile_header, [userconfig.strings.button_ok], [(userconfig.strings.caption_name, self.me.name), (userconfig.strings.caption_location, self.me.location), (userconfig.strings.caption_website, self.me.url), (userconfig.strings.caption_bio, self.me.description.replace(u"\n", u" "))], None, True)['texts']
+					action = self.dialog(u"\n".join(lines), [strings.button_ok, strings.button_edit_profile], None, None, True)['button']
+					if(action == strings.button_edit_profile):
+						entries = self.dialog(strings.edit_profile_header, [strings.button_ok], [(strings.caption_name, self.me.name), (strings.caption_location, self.me.location), (strings.caption_website, self.me.url), (strings.caption_bio, self.me.description.replace(u"\n", u" "))], None, True)['texts']
 						if(entries):
 							try:
 								self.me = self.api.update_profile(name = entries[0], location = entries[1], url = entries[2], description = entries[3])
-								self.notification(userconfig.strings.profile_updated)
+								self.notification(strings.profile_updated)
 							except tweepy.error.TweepError, err:
-								self.info_dialog(userconfig.error.api_error % err)
+								self.info_dialog(strings.api_error % err)
 								clear = False
 				else:
 					self.info_dialog(u"\n".join(lines))
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.reply):
+		elif(command == config.commands.reply):
 			if(has_data):
 				short_code = data_array[0]
 				del data_array[0]
@@ -1394,43 +1394,43 @@ class Client:
 							tweet_id = _tweet.retweeted_status.id_str
 						else:
 							user = tweet_author
-						data = config.strings.reply % (user, text)
+						data = strings.reply % (user, text)
 						tweet = self.post_tweet(data, tweet_id, user)
 						clear = (tweet != False)
 					else:
-						self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+						self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.data_required % command)
+					self.info_dialog(strings.data_required % command)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.mentions):
+		elif(command == config.commands.mentions):
 			try:
-				mentions = self.api.mentions(count = userconfig.var.mentions_count)
+				mentions = self.api.mentions(count = config.var.mentions_count)
 				tweets = []
 				for mention in mentions:
 					mention.id, mention.user.screen_name, mention.text, is_mention = plugins.on_tweet(self, mention.id, mention.user.screen_name, mention.text, False)
 					short_code = self.get_code(str(mention.id), mention.user.screen_name, mention.text, mention, mention.in_reply_to_status_id)
-					tweets.append(config.strings.mention_list_format % (short_code, mention.user.screen_name, mention.text))
+					tweets.append(strings.mention_list_format % (short_code, mention.user.screen_name, mention.text))
 				try:
-					choice = self.list_dialog(userconfig.strings.mentions_header % len(mentions), tweets)[1][1].split()[0]
+					choice = self.list_dialog(strings.mentions_header % len(mentions), tweets)[1][1].split()[0]
 				except:
 					pass
 				else:
-					self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.reply, choice))
+					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
-					action = self.dialog(userconfig.strings.mention_select_action, [userconfig.strings.reply, userconfig.strings.view_conversation], None, None)['button']
-					if(action == userconfig.strings.reply):
-						self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.reply, choice))
+					action = self.dialog(strings.mention_select_action, [strings.reply, strings.view_conversation], None, None)['button']
+					if(action == strings.reply):
+						self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					else:
-						self.cmdline_content.set_edit_text(u"%s %s" % (userconfig.commands.conversation, choice))
+						self.cmdline_content.set_edit_text(u"%s %s" % (config.commands.conversation, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.conversation):
+		elif(command == config.commands.conversation):
 			if(has_data):
 				short_code = data_array[0]
 				try:
@@ -1470,24 +1470,24 @@ class Client:
 						for tweet in conversation:
 							tweet.id, tweet.user.screen_name, tweet.text, is_mention = plugins.on_tweet(self, tweet.id, tweet.user.screen_name, tweet.text, False)
 							short_code = self.get_code(str(tweet.id), tweet.user.screen_name, tweet.text, tweet, tweet.in_reply_to_status_id)
-							tweets.append(config.strings.conversation_list_format % (short_code, tweet.user.screen_name, tweet.text))
+							tweets.append(strings.conversation_list_format % (short_code, tweet.user.screen_name, tweet.text))
 						try:
-							choice = self.list_dialog(userconfig.strings.conversation_header, tweets)[1][1].split()[0]
+							choice = self.list_dialog(strings.conversation_header, tweets)[1][1].split()[0]
 						except:
 							pass
 						else:
-							self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.replyall, choice))
+							self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.replyall, choice))
 							self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.relationship):
+		elif(command == config.commands.relationship):
 			if(has_data):
 				user1 = data_array[0]
 				try:
@@ -1499,20 +1499,20 @@ class Client:
 					rel1 = self.api.exists_friendship(user1, user2)
 					rel2 = self.api.exists_friendship(user2, user1)
 					if(rel1 and rel2):
-						self.info_dialog(userconfig.strings.rel_both % (user1, user2))
+						self.info_dialog(strings.rel_both % (user1, user2))
 					elif(rel1 and not(rel2)):
-						self.info_dialog(userconfig.strings.rel_i_follow % (user1, user2))
+						self.info_dialog(strings.rel_i_follow % (user1, user2))
 					elif(not(rel1) and rel2):
-						self.info_dialog(userconfig.strings.rel_following_me % (user1, user2))
+						self.info_dialog(strings.rel_following_me % (user1, user2))
 					elif(not(rel1) and not(rel2)):
-						self.info_dialog(userconfig.strings.rel_none % (user1, user2))
+						self.info_dialog(strings.rel_none % (user1, user2))
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.delete):
+		elif(command == config.commands.delete):
 			if(has_data):
 				short_code = data_array[0]
 				tweet_data = self.get_data(short_code)
@@ -1521,22 +1521,22 @@ class Client:
 					try:
 						if(hasattr(_tweet, "recipient")):
 							self.api.destroy_direct_message(tweet_id)
-							message_preview = tweet_text if(len(tweet_text) <= userconfig.var.tweet_preview_length) else tweet_text[:userconfig.var.tweet_preview_length] + u" […]"
-							self.notification(userconfig.strings.message_deleted % (message_preview, _tweet.recipient.screen_name))
+							message_preview = tweet_text if(len(tweet_text) <= config.var.tweet_preview_length) else tweet_text[:config.var.tweet_preview_length] + u" […]"
+							self.notification(strings.message_deleted % (message_preview, _tweet.recipient.screen_name))
 						else:
 							self.api.destroy_status(tweet_id)
-							tweet_preview = tweet_text if(len(tweet_text) <= userconfig.var.tweet_preview_length) else tweet_text[:userconfig.var.tweet_preview_length] + u" […]"
-							self.notification(userconfig.strings.deleted % tweet_preview)
+							tweet_preview = tweet_text if(len(tweet_text) <= config.var.tweet_preview_length) else tweet_text[:config.var.tweet_preview_length] + u" […]"
+							self.notification(strings.deleted % tweet_preview)
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.replyall):
+		elif(command == config.commands.replyall):
 			if(has_data):
 				short_code = data_array[0]
 				del data_array[0]
@@ -1559,16 +1559,16 @@ class Client:
 							if(word[1:].lower() != self.me.screen_name.lower() and word[1:] != '' and word not in users):
 								users.append(word)
 					user_list = ' '.join(users)
-					data = config.strings.replyall % (user_list, text)
+					data = strings.replyall % (user_list, text)
 					tweet = self.post_tweet(data, tweet_id, user)
 					clear = (tweet != False)
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.dump):
+		elif(command == config.commands.dump):
 			if(has_data):
 				short_code = data_array[0]
 				tweet_id = self.get_tweet_id(short_code)
@@ -1576,220 +1576,220 @@ class Client:
 					try:
 						tweet = self.api.get_status(tweet_id)
 						lines = []
-						lines.append(userconfig.strings.dump_header)
-						lines.append(userconfig.strings.dump_short_code % data_array[0])
-						lines.append(userconfig.strings.dump_internal_id % self.get_tweet_id(data_array[0]))
-						lines.append(userconfig.strings.dump_internal_in_reply_to % self.get_data(data_array[0])[4])
-						lines.append(userconfig.strings.dump_internal_username % self.get_data(data_array[0])[2])
-						lines.append(userconfig.strings.dump_internal_text % self.get_data(data_array[0])[3])
-						lines.append(userconfig.strings.dump_id % str(tweet.id))
-						lines.append(userconfig.strings.dump_in_reply_to % str(tweet.in_reply_to_status_id))
-						lines.append(userconfig.strings.dump_author % tweet.user.screen_name)
-						lines.append(userconfig.strings.dump_text % tweet.text)
-						lines.append(userconfig.strings.dump_source % tweet.source)
+						lines.append(strings.dump_header)
+						lines.append(strings.dump_short_code % data_array[0])
+						lines.append(strings.dump_internal_id % self.get_tweet_id(data_array[0]))
+						lines.append(strings.dump_internal_in_reply_to % self.get_data(data_array[0])[4])
+						lines.append(strings.dump_internal_username % self.get_data(data_array[0])[2])
+						lines.append(strings.dump_internal_text % self.get_data(data_array[0])[3])
+						lines.append(strings.dump_id % str(tweet.id))
+						lines.append(strings.dump_in_reply_to % str(tweet.in_reply_to_status_id))
+						lines.append(strings.dump_author % tweet.user.screen_name)
+						lines.append(strings.dump_text % tweet.text)
+						lines.append(strings.dump_source % tweet.source)
 						self.info_dialog(u"\n".join(lines))
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.invalid_short_code % (short_code, command, data))
+					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.trends):
+		elif(command == config.commands.trends):
 			try:
 				trends = self.api.trends_location(1)[0]['trends']
 				try:
-					choice = self.list_dialog(userconfig.strings.trends_header, [trend['name'] for trend in trends])[1][1]
+					choice = self.list_dialog(strings.trends_header, [trend['name'] for trend in trends])[1][1]
 				except:
 					pass
 				else:
 					self.cmdline_content.set_edit_text(u" %s" % choice)
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.clear):
+		elif(command == config.commands.clear):
 			self.clear_feed()
 			self.feed_refresh()
-		elif(command == userconfig.commands.filter_word):
+		elif(command == config.commands.filter_word):
 			if(has_data):
 				if(self.filter_word(data)):
-					self.notification(userconfig.strings.filtered_word % data.lower())
+					self.notification(strings.filtered_word % data.lower())
 				else:
-					self.info_dialog(userconfig.error.filter_word_error % data.lower())
+					self.info_dialog(strings.filter_word_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.filter_user):
+		elif(command == config.commands.filter_user):
 			if(has_data):
 				if(self.filter_user(data)):
-					self.notification(userconfig.strings.filtered_user % data.lower())
+					self.notification(strings.filtered_user % data.lower())
 				else:
-					self.info_dialog(userconfig.error.filter_user_error % data.lower())
+					self.info_dialog(strings.filter_user_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.filter_client):
+		elif(command == config.commands.filter_client):
 			if(has_data):
 				if(self.filter_client(data)):
-					self.notification(userconfig.strings.filtered_client % data.lower())
+					self.notification(strings.filtered_client % data.lower())
 				else:
-					self.info_dialog(userconfig.error.filter_client_error % data.lower())
+					self.info_dialog(strings.filter_client_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.filter_regex):
+		elif(command == config.commands.filter_regex):
 			if(has_data):
 				if(self.filter_regex(data)):
-					self.notification(userconfig.strings.filtered_regex % data)
+					self.notification(strings.filtered_regex % data)
 				else:
-					self.info_dialog(userconfig.error.filter_regex_error % data)
+					self.info_dialog(strings.filter_regex_error % data)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unfilter_word):
+		elif(command == config.commands.unfilter_word):
 			if(has_data):
 				if(self.unfilter_word(data)):
-					self.notification(userconfig.strings.unfiltered_word % data.lower())
+					self.notification(strings.unfiltered_word % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unfilter_word_error % data.lower())
+					self.info_dialog(strings.unfilter_word_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unfilter_user):
+		elif(command == config.commands.unfilter_user):
 			if(has_data):
 				if(self.unfilter_user(data)):
-					self.notification(userconfig.strings.unfiltered_user % data.lower())
+					self.notification(strings.unfiltered_user % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unfilter_user_error % data.lower())
+					self.info_dialog(strings.unfilter_user_error % data.lower())
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
-		elif(command == userconfig.commands.unfilter_client):
+				self.info_dialog(strings.data_required % command)
+		elif(command == config.commands.unfilter_client):
 			if(has_data):
 				if(self.unfilter_client(data)):
-					self.notification(userconfig.strings.unfiltered_client % data.lower())
+					self.notification(strings.unfiltered_client % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unfilter_client_error % data.lower())
+					self.info_dialog(strings.unfilter_client_error % data.lower())
 					clear = False
-		elif(command == userconfig.commands.unfilter_regex):
+		elif(command == config.commands.unfilter_regex):
 			if(has_data):
 				if(self.unfilter_regex(data)):
-					self.notification(userconfig.strings.unfiltered_regex % data)
+					self.notification(strings.unfiltered_regex % data)
 				else:
-					self.info_dialog(userconfig.error.unfilter_regex_error % data)
+					self.info_dialog(strings.unfilter_regex_error % data)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.list_word_filter):
+		elif(command == config.commands.list_word_filter):
 			word_filter = ", ".join(self.filtered_words)
-			self.info_dialog(userconfig.strings.word_filter % word_filter)
-		elif(command == userconfig.commands.list_user_filter):
+			self.info_dialog(strings.word_filter % word_filter)
+		elif(command == config.commands.list_user_filter):
 			user_filter = ", ".join(["@" + user for user in self.filtered_users])
-			self.info_dialog(userconfig.strings.user_filter % user_filter)
-		elif(command == userconfig.commands.list_client_filter):
+			self.info_dialog(strings.user_filter % user_filter)
+		elif(command == config.commands.list_client_filter):
 			client_filter = ", ".join(self.filtered_clients)
-			self.info_dialog(userconfig.strings.client_filter % client_filter)
-		elif(command == userconfig.commands.list_regex_filter):
+			self.info_dialog(strings.client_filter % client_filter)
+		elif(command == config.commands.list_regex_filter):
 			regex_filter = ", ".join([regex[0] for regex in self.filtered_regexes])
-			self.info_dialog(userconfig.strings.regex_filter % regex_filter)
-		elif(command == userconfig.commands.highlight_word):
+			self.info_dialog(strings.regex_filter % regex_filter)
+		elif(command == config.commands.highlight_word):
 			if(has_data):
 				if(self.highlight_word(data)):
-					self.notification(userconfig.strings.highlighted_word % data.lower())
+					self.notification(strings.highlighted_word % data.lower())
 				else:
-					self.info_dialog(userconfig.error.highlight_word_error % data.lower())
+					self.info_dialog(strings.highlight_word_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.highlight_user):
+		elif(command == config.commands.highlight_user):
 			if(has_data):
 				if(self.highlight_user(data)):
-					self.notification(userconfig.strings.highlighted_user % data.lower())
+					self.notification(strings.highlighted_user % data.lower())
 				else:
-					self.info_dialog(userconfig.error.highlight_user_error % data.lower())
+					self.info_dialog(strings.highlight_user_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.highlight_client):
+		elif(command == config.commands.highlight_client):
 			if(has_data):
 				if(self.highlight_client(data)):
-					self.notification(userconfig.strings.highlighted_client % data.lower())
+					self.notification(strings.highlighted_client % data.lower())
 				else:
-					self.info_dialog(userconfig.error.highlight_client_error % data.lower())
+					self.info_dialog(strings.highlight_client_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.highlight_regex):
+		elif(command == config.commands.highlight_regex):
 			if(has_data):
 				if(self.highlight_regex(data)):
-					self.notification(userconfig.strings.highlighted_regex % data)
+					self.notification(strings.highlighted_regex % data)
 				else:
-					self.info_dialog(userconfig.error.highlight_regex_error % data)
+					self.info_dialog(strings.highlight_regex_error % data)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unhighlight_word):
+		elif(command == config.commands.unhighlight_word):
 			if(has_data):
 				if(self.unhighlight_word(data)):
-					self.notification(userconfig.strings.unhighlighted_word % data.lower())
+					self.notification(strings.unhighlighted_word % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unhighlight_word_error % data.lower())
+					self.info_dialog(strings.unhighlight_word_error % data.lower())
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unhighlight_user):
+		elif(command == config.commands.unhighlight_user):
 			if(has_data):
 				if(self.unhighlight_user(data)):
-					self.notification(userconfig.strings.unhighlighted_user % data.lower())
+					self.notification(strings.unhighlighted_user % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unhighlight_user_error % data.lower())
+					self.info_dialog(strings.unhighlight_user_error % data.lower())
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
-		elif(command == userconfig.commands.unhighlight_client):
+				self.info_dialog(strings.data_required % command)
+		elif(command == config.commands.unhighlight_client):
 			if(has_data):
 				if(self.unhighlight_client(data)):
-					self.notification(userconfig.strings.unhighlighted_client % data.lower())
+					self.notification(strings.unhighlighted_client % data.lower())
 				else:
-					self.info_dialog(userconfig.error.unhighlight_client_error % data.lower())
+					self.info_dialog(strings.unhighlight_client_error % data.lower())
 					clear = False
-		elif(command == userconfig.commands.unhighlight_regex):
+		elif(command == config.commands.unhighlight_regex):
 			if(has_data):
 				if(self.unhighlight_regex(data)):
-					self.notification(userconfig.strings.unhighlighted_regex % data)
+					self.notification(strings.unhighlighted_regex % data)
 				else:
-					self.info_dialog(userconfig.error.unhighlight_regex_error % data)
+					self.info_dialog(strings.unhighlight_regex_error % data)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.list_highlighted_words):
+		elif(command == config.commands.list_highlighted_words):
 			highlighted_words = ", ".join(self.highlighted_words)
-			self.info_dialog(userconfig.strings.highlighted_words % highlighted_words)
-		elif(command == userconfig.commands.list_highlighted_users):
+			self.info_dialog(strings.highlighted_words % highlighted_words)
+		elif(command == config.commands.list_highlighted_users):
 			highlighted_users = ", ".join(["@" + user for user in self.highlighted_users])
-			self.info_dialog(userconfig.strings.highlighted_users % highlighted_users)
-		elif(command == userconfig.commands.list_highlighted_clients):
+			self.info_dialog(strings.highlighted_users % highlighted_users)
+		elif(command == config.commands.list_highlighted_clients):
 			highlighted_clients = ", ".join(self.highlighted_clients)
-			self.info_dialog(userconfig.strings.highlighted_clients % highlighted_clients)
-		elif(command == userconfig.commands.list_highlighted_regexes):
+			self.info_dialog(strings.highlighted_clients % highlighted_clients)
+		elif(command == config.commands.list_highlighted_regexes):
 			highlighted_regexes = "\n".join([regex[0] for regex in self.highlighted_regexes])
-			self.info_dialog(userconfig.strings.highlighted_regexes % highlighted_regexes)
-		elif(command == userconfig.commands.messages):
+			self.info_dialog(strings.highlighted_regexes % highlighted_regexes)
+		elif(command == config.commands.messages):
 			try:
-				received_messages = self.api.direct_messages(count = userconfig.var.messages_count)
-				sent_messages = self.api.sent_direct_messages(count = userconfig.var.messages_count)
+				received_messages = self.api.direct_messages(count = config.var.messages_count)
+				sent_messages = self.api.sent_direct_messages(count = config.var.messages_count)
 				messages = received_messages + sent_messages
 				messages.sort(key = lambda x: x.created_at, reverse=True)
 				dms = []
@@ -1797,22 +1797,22 @@ class Client:
 					message.id, message.sender.screen_name, message.text = plugins.on_message(self, message.id, message.sender.screen_name, message.text)
 					short_code = self.get_code(str(message.id), message.sender.screen_name, message.text, message, None)
 					if(message.sender.screen_name == self.me.screen_name):
-						dms.append(config.strings.message_list_format_sent % (short_code, message.recipient.screen_name, html_unescape(message.text).replace('\n', ' ')))
+						dms.append(strings.message_list_format_sent % (short_code, message.recipient.screen_name, html_unescape(message.text).replace('\n', ' ')))
 					else:
-						dms.append(config.strings.message_list_format_received % (short_code, message.sender.screen_name, html_unescape(message.text).replace('\n', ' ')))
+						dms.append(strings.message_list_format_received % (short_code, message.sender.screen_name, html_unescape(message.text).replace('\n', ' ')))
 				try:
-					choice = self.list_dialog(userconfig.strings.messages_header % len(messages), dms)[1][1].split()[0]
+					choice = self.list_dialog(strings.messages_header % len(messages), dms)[1][1].split()[0]
 				except:
 					pass
 				else:
-					self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.reply, choice))
+					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
-					self.cmdline_content.set_edit_text(u"%s %s " % (userconfig.commands.message, choice))
+					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.message, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.message):
+		elif(command == config.commands.message):
 			if(has_data):
 				identifier = data_array[0]
 				del data_array[0]
@@ -1827,135 +1827,135 @@ class Client:
 					else:
 						sender = identifier
 					try:
-						message = self.api.send_direct_message(user = sender, text = config.strings.message % text)
-						self.add_direct_message(self.get_code(str(message.id), message.recipient.screen_name, message.text, message, None), config.strings.sent_message_prefix + message.recipient.screen_name, text, True)
+						message = self.api.send_direct_message(user = sender, text = strings.message % text)
+						self.add_direct_message(self.get_code(str(message.id), message.recipient.screen_name, message.text, message, None), strings.sent_message_prefix + message.recipient.screen_name, text, True)
 					except tweepy.error.TweepError, err:
-						self.info_dialog(userconfig.error.api_error % err)
+						self.info_dialog(strings.api_error % err)
 						clear = False
 				else:
-					self.info_dialog(userconfig.error.data_required % command)
+					self.info_dialog(strings.data_required % command)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.block):
+		elif(command == config.commands.block):
 			if(has_data):
 				try:
 					self.api.create_block(screen_name = data_array[0])
-					self.notification(userconfig.strings.blocked % data)
+					self.notification(strings.blocked % data)
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.unblock):
+		elif(command == config.commands.unblock):
 			if(has_data):
 				try:
 					self.api.destroy_block(screen_name = data_array[0])
-					self.notification(userconfig.strings.unblocked % data)
+					self.notification(strings.unblocked % data)
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.report_as_spam):
+		elif(command == config.commands.report_as_spam):
 			if(has_data):
 				try:
 					self.api.report_spam(screen_name = data_array[0])
-					self.notification(userconfig.strings.reported_as_spam % data)
+					self.notification(strings.reported_as_spam % data)
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
 			else:
-				self.info_dialog(userconfig.error.data_required % command)
+				self.info_dialog(strings.data_required % command)
 				clear = False
-		elif(command == userconfig.commands.afk_mode_on):
+		elif(command == config.commands.afk_mode_on):
 			if(not self.afk_mode):
 				self.afk_mode = True
-				self.add_notification(userconfig.strings.afk_mode_enabled, False, False)
+				self.add_notification(strings.afk_mode_enabled, False, False)
 			else:
-				self.notification(userconfig.error.afk_mode_already_enabled)
+				self.notification(strings.afk_mode_already_enabled)
 				clear = False
-		elif(command == userconfig.commands.afk_mode_off):
+		elif(command == config.commands.afk_mode_off):
 			if(self.afk_mode):
 				self.afk_mode = False
-				self.add_notification(userconfig.strings.afk_mode_disabled, False, False)
+				self.add_notification(strings.afk_mode_disabled, False, False)
 			else:
-				self.notification(userconfig.error.afk_mode_not_enabled)
+				self.notification(strings.afk_mode_not_enabled)
 				clear = False
-		elif(command == userconfig.commands.lists and False):
+		elif(command == config.commands.lists and False):
 			try:
 				lists = self.api.lists()
 				try:
-					list_choice = self.list_dialog(userconfig.strings.lists_header, [html_unescape(list.name) for list in lists])[1][0]
+					list_choice = self.list_dialog(strings.lists_header, [html_unescape(list.name) for list in lists])[1][0]
 				except:
 					pass
 				else:
 					selected_list = lists[list_choice]
 					lines = []
-					lines.append(userconfig.strings.list_details_header % html_unescape(unicode(selected_list.name)) + u"\n")
-					lines.append(userconfig.strings.list_details_item_description % html_unescape(unicode(selected_list.description)) + u"\n")
-					lines.append(userconfig.strings.list_details_item_privacy % unicode(selected_list.mode).capitalize())
-					lines.append(userconfig.strings.list_details_item_members % unicode(selected_list.member_count))
-					lines.append(userconfig.strings.list_details_item_subscribers % unicode(selected_list.subscriber_count))
-					action = self.dialog(u"\n".join(lines), [userconfig.strings.button_members, userconfig.strings.button_edit, userconfig.strings.button_add_member, userconfig.strings.button_delete_list])['button']
-					if(action == userconfig.strings.button_members):
+					lines.append(strings.list_details_header % html_unescape(unicode(selected_list.name)) + u"\n")
+					lines.append(strings.list_details_item_description % html_unescape(unicode(selected_list.description)) + u"\n")
+					lines.append(strings.list_details_item_privacy % unicode(selected_list.mode).capitalize())
+					lines.append(strings.list_details_item_members % unicode(selected_list.member_count))
+					lines.append(strings.list_details_item_subscribers % unicode(selected_list.subscriber_count))
+					action = self.dialog(u"\n".join(lines), [strings.button_members, strings.button_edit, strings.button_add_member, strings.button_delete_list])['button']
+					if(action == strings.button_members):
 						members = self.api.list_members(owner = selected_list.user.screen_name, slug = selected_list.slug)
 						try:
-							user_choice = self.list_dialog(userconfig.strings.list_members_header % html_unescape(unicode(selected_list.name)), [userconfig.strings.list_members_item % (member.name, member.screen_name) for member in members])[1][0]
+							user_choice = self.list_dialog(strings.list_members_header % html_unescape(unicode(selected_list.name)), [strings.list_members_item % (member.name, member.screen_name) for member in members])[1][0]
 						except:
 							pass
 						else:
 							selected_user = members[user_choice]
-							if(self.yes_no_dialog(userconfig.strings.remove_user_from_list % (selected_user.screen_name, html_unescape(unicode(selected_list.name))))):
+							if(self.yes_no_dialog(strings.remove_user_from_list % (selected_user.screen_name, html_unescape(unicode(selected_list.name))))):
 								try:
 									selected_list = self.api.remove_list_member(slug = selected_list.id, id = selected_user.id)
-									self.notification(userconfig.strings.list_member_removed % (selected_user.screen_name, html_unescape(unicode(selected_list.name))))
+									self.notification(strings.list_member_removed % (selected_user.screen_name, html_unescape(unicode(selected_list.name))))
 								except tweepy.error.TweepError, err:
-									self.info_dialog(userconfig.error.api_error % err)
+									self.info_dialog(strings.api_error % err)
 									clear = False
-					elif(action == userconfig.strings.button_edit):
-						entries = self.dialog(userconfig.strings.edit_list_header % html_unescape(unicode(selected_list.name)), [userconfig.strings.button_ok], [(userconfig.strings.caption_name, html_unescape(unicode(selected_list.name))), (userconfig.strings.caption_privacy, selected_list.mode), (userconfig.strings.caption_description, html_unescape(unicode(selected_list.description)))], None, True)['texts']
+					elif(action == strings.button_edit):
+						entries = self.dialog(strings.edit_list_header % html_unescape(unicode(selected_list.name)), [strings.button_ok], [(strings.caption_name, html_unescape(unicode(selected_list.name))), (strings.caption_privacy, selected_list.mode), (strings.caption_description, html_unescape(unicode(selected_list.description)))], None, True)['texts']
 						if(entries):
 							try:
 								selected_list = self.api.update_list(slug = selected_list.id, name = entries[0], mode = entries[1], description = entries[2])
-								self.notification(userconfig.strings.list_updated % html_unescape(unicode(selected_list.name)))
+								self.notification(strings.list_updated % html_unescape(unicode(selected_list.name)))
 							except tweepy.error.TweepError, err:
-								self.info_dialog(userconfig.error.api_error % err)
+								self.info_dialog(strings.api_error % err)
 								clear = False
-					elif(action == userconfig.strings.button_add_member):
-						username = self.input_dialog(userconfig.strings.add_list_member % html_unescape(unicode(selected_list.name)), userconfig.strings.caption_username)
+					elif(action == strings.button_add_member):
+						username = self.input_dialog(strings.add_list_member % html_unescape(unicode(selected_list.name)), strings.caption_username)
 						try:
 							user = self.api.get_user(screen_name = username)
 							selected_list = self.api.add_list_member(slug = selected_list.id, id = user.id)
-							self.notification(userconfig.strings.list_member_added % (user.screen_name, html_unescape(unicode(selected_list.name))))
+							self.notification(strings.list_member_added % (user.screen_name, html_unescape(unicode(selected_list.name))))
 						except tweepy.error.TweepError, err:
-							self.info_dialog(userconfig.error.api_error % err)
+							self.info_dialog(strings.api_error % err)
 							clear = False
-					elif(action == userconfig.strings.button_delete_list):
-						if(self.yes_no_dialog(userconfig.strings.delete_list % html_unescape(unicode(selected_list.name)))):
+					elif(action == strings.button_delete_list):
+						if(self.yes_no_dialog(strings.delete_list % html_unescape(unicode(selected_list.name)))):
 							try:
 								selected_list = self.api.destroy_list(slug = selected_list.id)
-								self.notification(userconfig.strings.list_deleted % html_unescape(unicode(selected_list.name)))
+								self.notification(strings.list_deleted % html_unescape(unicode(selected_list.name)))
 							except tweepy.error.TweepError, err:
-								self.info_dialog(userconfig.error.api_error % err)
+								self.info_dialog(strings.api_error % err)
 								clear = False
 					#TODO: Could be improved / extended
 			except tweepy.error.TweepError, err:
-				self.info_dialog(userconfig.error.api_error % err)
+				self.info_dialog(strings.api_error % err)
 				clear = False
-		elif(command == userconfig.commands.create_list and False):
-			entries = self.dialog(userconfig.strings.create_list_header, [userconfig.strings.button_ok], [(userconfig.strings.caption_name, u""), (userconfig.strings.caption_privacy, u""), (userconfig.strings.caption_description, u"")], None, True)['texts']
+		elif(command == config.commands.create_list and False):
+			entries = self.dialog(strings.create_list_header, [strings.button_ok], [(strings.caption_name, u""), (strings.caption_privacy, u""), (strings.caption_description, u"")], None, True)['texts']
 			if(entries):
 				try:
 					created_list = self.api.create_list(name = entries[0], mode = entries[1], description = entries[2])
-					self.notification(userconfig.strings.list_created % html_unescape(unicode(created_list.name)))
+					self.notification(strings.list_created % html_unescape(unicode(created_list.name)))
 				except tweepy.error.TweepError, err:
-					self.info_dialog(userconfig.error.api_error % err)
+					self.info_dialog(strings.api_error % err)
 					clear = False
-		elif(command == userconfig.commands.refresh):
+		elif(command == config.commands.refresh):
 			last_tweet_id = self.get_last_data()
 			if last_tweet_id:
 				last_tweet_id = last_tweet_id[1]
@@ -1963,7 +1963,7 @@ class Client:
 				last_tweet_id = None
 			self.backfill(since_id = last_tweet_id)
 		else:
-			self.info_dialog(userconfig.error.invalid_command % command)
+			self.info_dialog(strings.invalid_command % command)
 			clear = False
 		
 		if(not clear):
@@ -1985,7 +1985,7 @@ class Client:
 			raise ClientQuit
 	
 	def api_error(self, err, is_fatal = False):
-		print red(userconfig.error.api_error % err)
+		print red(strings.api_error % err)
 		if(is_fatal):
 			sys.exit(1)
 # Comment to push that swaggy shit up one line.

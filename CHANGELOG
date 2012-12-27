@@ -150,3 +150,14 @@ v0.13
 
 v0.14
 - Removed unnecessary hint to "--nobackfill" command line option in startup text and replaced it with a hint to the "--help" argument
+
+v1.0
+- Finally published the source on GitHub!
+- Fixed scrolling (wasn't working with the latest version of Urwid)
+- Moved API tokens to an external file that won't get on GitHub
+- No longer compiling binaries now since you can just download the source code
+- Updated update notification text
+- Changes to file structure
+- Removed obsolete curses import in functions file
+- Fixed dialog text alignment with latest Urwid version
+- Changes to startup text

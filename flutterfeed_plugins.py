@@ -3,7 +3,7 @@
 # Attempt at a simple plugin system for Mezgrman's CLI Twitter client.
 # © 2012 Mezgrman.
 
-import config
+import flutterfeed_strings as strings
 
 def on_command(instance, command, data_array):
 	#command = command.lower()
@@ -31,12 +31,12 @@ def on_notification(instance, frequency, duration, status, message, event):
 	return frequency, duration, status, message, event
 
 def on_init():
-	print config.strings.startup_text
+	print strings.startup_text
 	return
 
 def on_ready(instance):
 	return
 
 def on_exit(instance):
-	print config.strings.quit_text
+	print strings.quit_text
 	return

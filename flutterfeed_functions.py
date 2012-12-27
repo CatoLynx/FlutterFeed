@@ -3,13 +3,11 @@
 # Additional functions for Mezgrman's CLI Twitter client.
 # © 2012 Mezgrman.
 
-import config
-import userconfig
-import os
-import curses
-import random
 from httplib2 import Http
 from urlparse import urlparse
+import flutterfeed_config as config
+import os
+import random
 
 def bold(text):
 	return "\033[1m" + text + "\033[0;0m"
