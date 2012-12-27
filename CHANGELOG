@@ -1,0 +1,152 @@
+*** CHANGELOG ***
+FlutterFeed ©2012 Mezgrman
+
+v0.1.1
+- First version
+
+v0.2
+- Replaced the simple command input with a textbox featuring basic text editing (no Unicode support though)
+
+v0.3
+- Removed the textbox in favor of the old input method (too buggy)
+- The "conversation" command now checks if a tweet has already been received in order to reduce the number of API calls
+- The command line now clears itself immediately after pressing enter, not after the command has been processed; it also shows that it's processing the command
+- Added a "clear" command that will clear the feed window
+- Commands starting with the command character two times in a row are now being tweeted as a normal tweet after stripping the first command character
+- Added filtering for words, users and clients
+- Fixed some HTML escaping bugs
+- Fixed some crashes when adding a "not enough arguments for command" warning
+- Fixed some Unicode encoding and decoding bugs causing crashes
+- Fixed a bug where a short code that was already in use not too many tweets ago would get assigned to a ifferent tweet, causing chaos and confusion (DISCORD!)
+- Fixed a bug that caused a crash when enter was pressed, but no command entered
+- Improved the "Reply All" function to strip invalid characters from a username (e.g. "@Username:" -> "@Username") and prevent double-inclusion of usernames
+- Added direct message support
+- Added "Block" and "Report as spam" commands
+- Modified the block title of mentions and last tweets to show the actual count of items instead of the count set in the configuration
+- Improved the parsing of incoming retweets
+- Added a startup text
+- First public release
+
+v0.4
+- Included a hint to the help command in the startup text
+- Changed the mention highlighting to require an "@" before the username to mark a tweet as mention
+- Separated database error handling from API error handling at login
+- Improved the database path handling to use the same database no matter which directory the user is in
+- Added newline capability (just enter "\n")
+
+v0.5
+- Switched from curses to urwid (That's one hell of a change to the internals)
+- Now featuring Popups instead of blocks
+- Stability improvements (no more crashes due to Unicode errors)
+- Slightly different colors
+- Interactive help (select a command to view its details)
+- Changed the "exit" command to Ctrl+X
+- Second public release
+
+v0.6
+- Included a hint at the possibility to do commented retweets in the help
+- TwitLonger integration for tweets and replies
+- Counter for remaining characters in the command line
+- Favorite and unfavorite notifications (when the user favorites / unfavorites a tweet) now display the beginning of the tweet text and the author instead of the short code
+- Fixed a bug that caused an extra empty line to be inserted into the feed on startup
+- Third public release
+
+v0.7
+- Added an "AFK mode" which shows only new mentions, direct messages, favorite and follower notifications
+- Added notifications for new followers
+- Improved tweet deletion handling to actually remove the deleted tweet from the feed instead of just notifying the user that it was deleted
+- Added a notification to notify the user that their tweet was successfully deleted
+- Improved linebreaking to honor words and try to break at a whitespace; Notifications, warnings and errors are now linebroken too
+- Changed highlighting for stuff involving the user from inverted colors to bold, light cyan (looks nicer with linebreaks)
+- Changed the caching system to dump the whole tweet object into the temporary database, resulting in fewer API requests and (hopefully) improved performance
+- Replying to retweets now sets the in_reply_to_status_id properly
+- Favoriting a tweet now outputs the actual favorited tweet in the notification if faving a retweet
+- Improved user filtering to filter out notifications from users on the blacklist too
+- Now displaying sent direct messages instead of just displaying a notification
+- Modified the counter in the command line to always show three digits
+- Improved the "delete" command to be able to delete direct messages as well
+- Fixed a bug that would cause a crash on direct message deletion (not my fault)
+- Included link resolving (displaying the URL the link points to instead of the t.co URL)
+- Changed the TwitLonger behaviour to only suggest posting a tweet to TwitLonger when Twitter says it's over 140 characters
+- Changed the behaviour of the command line to only clear the text if no error occurred
+
+v0.8
+- Slight changes to the way sent direct messages and user profiles are displayed
+- Fixed a bug that would cause the cursor to be in the wrong position when hitting Enter in the "Trends" popup
+- Added basic list support
+- Fixed missing HTML unescaping in some list dialogs
+- Added a check for updates on startup
+- Added profile editing capability
+- Changed the "profile" command to "/profile"
+- Now printing most notifications for actions the user did as a temporary popup
+- Added better error handling in case a tweet can't be retweeted
+- Modified the "profile" and "last tweets" commands to show the user's profile / last tweets if no username is given
+- Changed "Mezgrman" to "@Mezgrman" in the startup text
+- (Un-) favoriting a tweet now changes its color in the feed
+
+v0.9
+- Fixed a bug that prevented tweet removals and favorite colorizations from working when the feed contained a lot of tweets
+- Now displaying full name and username in favorite and unfavorite notifications
+- Changed the stream timeout reconnection delay from 30 to 10 seconds and the timeout delay from 120 to 60 seconds
+- Added backfilling on startup and stream errors
+- Stream timeouts are now silently handled in the background
+- Mentions are now also colored when favorited
+- Tweets that have already been favorited by the user are now being marked accordingly
+- Changed the mechanism to generate short codes to be faster and enable the client to cache at least 500 instead of 100 tweets
+- The minimum number of cached tweets is now calculated from the characters available for short codes and the length of the short codes
+- Changed the popup notification timeout from 1.5 seconds to 1 second
+- Disabled list support due to incompatibility with the Twitter API wrapper (hope this gets fixed soon)
+- Added experimental support for TwExtender, my own service for tweets longer than 140 characters
+- Added a feature to highlight tweets from specific users, containing specific words or being sent from specific clients
+- Added a parameter to disable backfilling (useful for slow internet connections)
+- Fixed a bug that caused tweets containing linebreaks to be cut off in list dialogs
+- Fixed a bug that caused conversations to be always loaded from twitter instead of using the cached tweets (can't believe I only discovered that now!)
+- Improved conversation history viewing to work with retweeted tweets as well
+- Doing a commented retweet on a retweet will now do a commented retweet of the original tweet instead of the retweet
+- Improved link resolving to use tweet entities instead of doing the lookup on the client side
+- Added a field showing the current amount of cached tweets to the status bar
+- Fixed a bug that prevented favorite and unfavorite notifications from working
+
+v0.10
+- Changed startup behaviour to load the status bar even if the stream is not yet ready
+- Modified the prompt to display nothing but the remaining character counter
+- Improved statusbar updating to update when a new tweet by the authenticating user is received
+- Added a feature to post a tweet without starting the user interface
+- Changed storage management to create a hidden folder in the user's home directory to store the database file in instead of looking only in the current working directory
+- Added command-line options to use filter streams for user ids, keywords or locations instead of userstreams
+- Changed background color to use the terminal default (looks especially nice with transparent backgrounds)
+- Added a command line parameter to override the default database storage path
+- Now showing username in window title
+
+v0.11
+- Updated TwExtender to use dev.mezgrman.de instead of testing.mezgrman.de and JSON instead of XML (API change)
+- Now setting the in_reply_to_status_id parameter when doing commented retweets
+- Now displaying TwExtender errors as an info dialog instead of an error in the feed
+- Added title bar and libnotify notifications if running in a GUI with X11 support
+- Fixed a Unicode error on startup when running from the binary
+
+v0.12
+- Fixed a bug in the version check where server-side caching would prevent the current version of the version file on the server from being fetched
+- Fixed a bug that prevented the first login to work flawlessly
+- Added a check for pynotify support instead of just loading it
+- Added support for loading replies to a tweet in conversation view
+- Improved mention detection (could throw false alerts in some cases)
+- Improved Ctrl+C handling
+- Removed Popup dialog on stream timeout (forgot to remove that, was only for debugging purposes)
+- Changed popup notification titles to include the username the notification is for (useful if running multiple instances for different accounts)
+- Added a RegEx highlighting and filtering feature
+
+v0.13
+- Changed the appearance of the "Highlighted RegExes" and "Filtered RegExes" dialogs to show the regular expressions separated by linebreaks to avoid confusion
+- The other filter & highlighting list dialogs now show the lists below the title (better readability)
+- Added a "manual" mode where the feed has to be refreshed manually
+- Added a "refresh" command to refresh the feed by hand
+- Added help texts for command-line arguments
+- Fixed a bug that prevented the command-line argument help from being shown
+- Improved update checking to only notify when the version on the server is really newer than the used version and be less buggy in case of network problems
+- Improved multi-account support (now able to use multiple accounts with all the same filters; you'll need to re-authenticate, this will not delete your filter settings)
+- Adapted TwExtender module to new API response format (again)
+- Added an "on_notification" plugin hook
+
+v0.14
+- Removed unnecessary hint to "--nobackfill" command line option in startup text and replaced it with a hint to the "--help" argument
