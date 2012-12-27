@@ -402,7 +402,7 @@ class Client:
 	def feed_refresh(self):
 		self.feed_content = urwid.ListBox(self.feed_lines)
 		try:
-			self.feed_content.set_focus(len(self.feed_lines))
+			self.feed_content.set_focus(self.feed_lines.focus + 1)
 		except IndexError:
 			pass
 		self.feed = urwid.AttrMap(urwid.Filler(urwid.BoxAdapter(self.feed_content, self.feed_height)), 'feed')
