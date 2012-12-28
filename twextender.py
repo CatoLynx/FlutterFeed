@@ -23,7 +23,7 @@ class API:
 	
 	def post_tweet(self, author_username, text, in_reply_to_username = None, in_reply_to_status_id = None, code = False):
 		raw_request_data = {'api_key': self.api_key, 'author_username': author_username, 'text': text.encode('utf-8'), 'code': "code" if code else ""}
-		if(in_reply_to_username is not None and in_reply_to_status_id is not None):
+		if in_reply_to_username is not None and in_reply_to_status_id is not None:
 			raw_request_data['in_reply_to_username'] = in_reply_to_username
 			raw_request_data['in_reply_to_status_id'] = in_reply_to_status_id
 		request_data = urllib.urlencode(raw_request_data)

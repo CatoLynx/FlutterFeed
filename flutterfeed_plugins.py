@@ -1,7 +1,6 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Attempt at a simple plugin system for Mezgrman's CLI Twitter client.
-# © 2012 Mezgrman.
+# Attempt at a simple plugin system
+# © 2012 Mezgrman
 
 import flutterfeed_strings as strings
 

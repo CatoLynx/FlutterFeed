@@ -69,7 +69,7 @@ class API:
 			except IndexError:
 				post_short_url = None
 			else:
-				if(post_short_url == "isgdfail"):
+				if post_short_url == "isgdfail":
 					post_short_url = False
 			try:
 				post_content = tag_content.match(post.getElementsByTagName("content")[0].toxml()).group('content')
@@ -84,7 +84,7 @@ class API:
 	
 	def post_tweet(self, username, message, in_reply = None, in_reply_user = None):
 		raw_request_data = {'application': self.application, 'api_key': self.api_key, 'username': username, 'message': message.encode('utf-8')}
-		if(in_reply is not None and in_reply_user is not None):
+		if in_reply is not None and in_reply_user is not None:
 			raw_request_data['in_reply'] = in_reply
 			raw_request_data['in_reply_user'] = in_reply_user
 		request_data = urllib.urlencode(raw_request_data)
@@ -122,9 +122,9 @@ class API:
 		return parsed_response
 	
 	def get_tweet(self, identifier):
-		if("://" in identifier):
+		if "://" in identifier:
 			identifier = self.get_message_id_from_url(identifier)
-		if(not identifier):
+		if not identifier:
 			resp = TwitLongerAPIResponse()
 			resp.error = "Invalid URL supplied."
 			return resp
@@ -146,9 +146,9 @@ class API:
 	def get_message_id_from_url(self, url):
 		try:
 			url_parts = url.split("/")
-			if(url_parts[2] == "tl.gd"):
+			if url_parts[2] == "tl.gd":
 				message_id = url_parts[3]
-			elif((url_parts[2] == "twitlonger.com" or url_parts[2] == "www.twitlonger.com") and url_parts[3] == "show"):
+			elif (url_parts[2] == "twitlonger.com" or url_parts[2] == "www.twitlonger.com") and url_parts[3] == "show":
 				message_id = url_parts[4]
 			else:
 				return False
@@ -158,8 +158,8 @@ class API:
 	
 	def process_text(self, text):
 		for word in text.split():
-			if("://" in word):
+			if "://" in word:
 				tweet = self.get_tweet(word)
-				if(not tweet.error):
+				if not tweet.error:
 					text = tweet.post.content
 		return text

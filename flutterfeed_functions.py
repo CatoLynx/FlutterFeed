@@ -1,7 +1,6 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Additional functions for Mezgrman's CLI Twitter client.
-# © 2012 Mezgrman.
+# Additional functions
+# © 2012 Mezgrman
 
 from httplib2 import Http
 from urlparse import urlparse
@@ -34,7 +33,7 @@ def gen_short_code(value):
 def expand_url(url, full = False):
 	conn = Http()
 	conn.force_exception_to_status_code = True
-	if(full):
+	if full:
 		n = 100
 	else:
 		n = 0
@@ -53,8 +52,8 @@ def expand_urls(text):
 	pieces = []
 	words = text.split()
 	for word in words:
-		if(stripos(word, "http://") == 0 or stripos(word, "https://") == 0):
-			if(word[-1:] in ignored_characters):
+		if stripos(word, "http://") == 0 or stripos(word, "https://") == 0:
+			if word[-1:] in ignored_characters:
 				temp_word = str(word[:-1])
 				temp_rest = str(word[-1:])
 				temp_word = expand_url(temp_word) + temp_rest
@@ -72,8 +71,8 @@ def get_links(text):
 	links = []
 	words = text.split()
 	for word in words:
-		if(stripos(word, "http://") == 0 or stripos(word, "https://") == 0):
-			if(word[-1:] in ignored_characters):
+		if stripos(word, "http://") == 0 or stripos(word, "https://") == 0:
+			if word[-1:] in ignored_characters:
 				word = str(word[:-1])
 			
 			links.append(word)
@@ -83,7 +82,7 @@ def get_links(text):
 def get_domain(link, subdomains = True):
 	try:
 		domain = urlparse(link)
-		if(subdomains):
+		if subdomains:
 			return domain[1]
 		else:
 			domain_parts = domain[1].split('.')

@@ -1,9 +1,17 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# This file contains the part of the client configuration that should NOT be edited by the user.
-# © 2012 Mezgrman.
+# Configuration file
+# © 2012 Mezgrman
 
 import flutterfeed_tokens as tokens
+
+class api:
+	api_host = "api.twitter.com"
+	api_root = "/1"
+	retry_count = 5
+	retry_delay = 5
+	retry_errors = [500, 502, 503, 504]
+	search_host = "search.twitter.com"
+	secure = True
 
 class commands:
 	cmd_prefix = u"/"
@@ -85,9 +93,6 @@ class system:
 	statusbar_loading_delay = 1
 	statusbar_update_interval_left = 300
 	statusbar_update_interval_right = 1
-	api_retry_count = 5
-	api_retry_delay = 5
-	api_retry_errors = [500, 502, 503, 504]
 	exit_key = "ctrl x"
 	submit_key = "enter"
 	twitlonger_application_name = tokens.twitlonger_application_name
@@ -98,6 +103,7 @@ class system:
 	default_account_name = "default"
 
 class var:
+	always_extend_tweet = True
 	verifier_prompt_delay = 5
 	beep = False
 	popups = True

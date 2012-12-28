@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# FlutterFeed – the command-line Python Twitter client made by Mezgrman.
-# © 2012 Mezgrman.
+# FlutterFeed – A CLI Twitter client for Linux written in Python
+# © 2012 Mezgrman
 
 x_display = None
 gui = False
@@ -18,7 +18,7 @@ else:
 		pass
 	else:
 		gui = True
-	if(gui):
+	if gui:
 		window_id = x_display.get_input_focus().focus.id
 
 from flutterfeed_functions import *
@@ -53,7 +53,7 @@ def main():
 	global args
 	client = classes.Client(ui, args, gui, x_display, window_id)
 	client.login()
-	if(args.tweet is not None):
+	if args.tweet is not None:
 		try:
 			client.api.update_status(args.tweet)
 		except tweepy.error.TweepError, err:

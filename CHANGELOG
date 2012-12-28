@@ -161,3 +161,12 @@ v1.0
 - Removed obsolete curses import in functions file
 - Fixed dialog text alignment with latest Urwid version
 - Changes to startup text
+
+v1.0.1
+- Removed unneccessary rate limit status check (doesn't work with API v1.1 anymore anyway)
+- Now using API v1.1
+- Exposed more API configuration in config.py
+- Removed Notification popup when favoriting / unfavoriting a tweet (you'll see that the operation succeeded when the "loading" indicator disappears and there's no error message)
+- Improved Ctrl+C handling (it does now clear the command line instead of quitting the client)
+- Added a configuration option to always use the tweet extension service without asking
+- Removed unneccessary parantheses in source code
