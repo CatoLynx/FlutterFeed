@@ -6,6 +6,7 @@ import flutterfeed_config as config
 # Messages etc.
 window_title_no_notifications = u"@%(username)s - %(name)s v%(version)s"
 window_title_notifications = u"(%(notifications)i) @%(username)s - %(name)s v%(version)s"
+auth_url = u"Please visit %s in your browser and authorize this application. If you have a browser installed, the URL should be opened automatically."
 verifier_prompt = u"Please enter the verifier code you got from Twitter: "
 favorite_notification = u"%s (@%s) favorited your tweet '%s'."
 unfavorite_notification = u"%s (@%s) unfavorited your tweet '%s'."

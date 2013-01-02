@@ -257,9 +257,13 @@ class Client:
 			redirect_url = auth.get_authorization_url()
 		except tweepy.error.TweepError, err:
 			self.api_error(err, True)
-		import webbrowser
-		webbrowser.open_new_tab(redirect_url)
-		time.sleep(config.var.verifier_prompt_delay)
+		print strings.auth_url % redirect_url
+		try:
+			import webbrowser
+			webbrowser.open_new_tab(redirect_url)
+			time.sleep(config.var.verifier_prompt_delay)
+		except:
+			pass
 		verifier = ""
 		while verifier == "":
 			verifier = raw_input(strings.verifier_prompt)
