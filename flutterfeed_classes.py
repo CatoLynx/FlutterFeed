@@ -88,7 +88,8 @@ class Dialog(urwid.WidgetWrap):
 		button_grid_width = ((max_button_width + config.geometry.button_h_spacing) * len(buttons) + 1)
 		width = message_width if message_width > button_grid_width else button_grid_width
 		height = (len(lines) + 3 + (config.geometry.dialog_padding * 2))
-		msg_widget = urwid.Padding(urwid.Text(msg, 'center'), 'center', width - (config.geometry.dialog_padding * 2))
+		self.dialog_text = urwid.Text(msg, 'center')
+		msg_widget = urwid.Padding(self.dialog_text, 'center', width - (config.geometry.dialog_padding * 2))
 		button_grid = urwid.GridFlow(button_widgets, max_button_width, config.geometry.button_h_spacing, config.geometry.button_v_spacing, 'center')
 		widget_list = [msg_widget]
 		if edit_items:
@@ -134,7 +135,8 @@ class Notification(urwid.WidgetWrap):
 				max_line_width = len(line)
 		width = (max_line_width + (config.geometry.dialog_padding * 2))
 		height = (len(lines) + (config.geometry.dialog_padding * 2))
-		msg_widget = urwid.Padding(urwid.Text(msg, 'center'), 'center', width - (config.geometry.dialog_padding * 2))
+		self.dialog_text = urwid.Text(msg, 'center')
+		msg_widget = urwid.Padding(self.dialog_text, 'center', width - (config.geometry.dialog_padding * 2))
 		self.combined = urwid.AttrMap(urwid.Filler(msg_widget), attr[0])
 		overlay = urwid.Overlay(self.combined, body, 'center', width, 'middle', height)
 		self.__super.__init__(overlay)
@@ -1967,6 +1969,41 @@ class Client:
 			else:
 				last_tweet_id = None
 			self.backfill(since_id = last_tweet_id)
+		elif command == config.commands.sync_following:
+			if has_data:
+				try:
+					source_following = self.api.friends_ids(screen_name = data_array[0])
+					target_following = self.api.friends_ids(user_id = self.me.id)
+				except tweepy.error.TweepError as err:
+					self.info_dialog(strings.api_error % err)
+					clear = False
+				follow = [id for id in source_following if id not in target_following]
+				unfollow = [id for id in target_following if id not in source_following]
+				total_actions = len(follow) + len(unfollow)
+				if self.yes_no_dialog(strings.sync_confirmation % (len(unfollow), len(follow), total_actions)):
+					i = 0
+					for id in unfollow:
+						try:
+							i += 1
+							progress = (i / total_actions) * 100
+							# self.cmdline_content.set_caption(('cmdline bold', strings.prompt_percentage % progress))
+							self.api.destroy_friendship(user_id = id)
+						except tweepy.error.TweepError as err:
+							self.info_dialog(strings.api_error % err)
+							clear = False
+					for id in follow:
+						try:
+							i += 1
+							progress = (i / total_actions) * 100
+							# self.cmdline_content.set_caption(('cmdline bold', strings.prompt_percentage % progress))
+							self.api.create_friendship(user_id = id)
+						except tweepy.error.TweepError as err:
+							self.info_dialog(strings.api_error % err)
+							clear = False
+					self.info_dialog(strings.sync_complete % total_actions)
+			else:
+				self.info_dialog(strings.data_required % command)
+				clear = False
 		else:
 			self.info_dialog(strings.invalid_command % command)
 			clear = False

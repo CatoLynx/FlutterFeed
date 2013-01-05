@@ -169,3 +169,6 @@ v1.0.1
 - Improved Ctrl+C handling (it does now clear the command line instead of quitting the client)
 - Added a configuration option to always use the tweet extension service without asking
 - Removed unneccessary parantheses in source code
+- Now printing the authentication URL in case there's now webbrowser installed
+- Made dialog and notification text editable (at least in theory)
+- Added a "sync" command to make your following list identical to that of another user (USE WITH CAUTION!)

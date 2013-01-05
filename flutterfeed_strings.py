@@ -17,6 +17,8 @@ countdown_updating = u"Updating..."
 countdown = u"Next update in %i:%02i"
 prompt = u"[%03.f] > "
 prompt_loading = u"[loading] > "
+prompt_percentage = u"[%03.f%%] > "
+prompt_generic = u"[%s] > "
 favorited = u"Favorited \"%s\" by @%s."
 unfavorited = u"Unfavorited \"%s\" by @%s."
 followed = u"Followed @%s."
@@ -141,6 +143,8 @@ args_users = u"Comma separated list of user IDs to start a stream for instead of
 args_locations = u"Comma separated list of location bounding box coordinates to start a stream for instead of starting the user's timeline stream"
 args_database = u"The database file to use"
 args_account = u"The account / profile to use. If not specified, use the default account. If no account with the given name is found, it is created."
+sync_confirmation = u"This action will unfollow %i and follow %i people, performing %i API calls.\n\nAre you sure you want to continue?"
+sync_complete = u"Synchronization complete. %i actions performed."
 
 # More 'internal' strings
 tweet_prefix = u"%s: "
@@ -216,6 +220,7 @@ help_entries = [
 	("/afkon", "Turn on AFK mode. In AFK mode, only mentions, direct messages, favorite, unvaforite and follower notifications are shown."),
 	("/afkoff", "Turn off AFK mode. All new tweets and events are shown."),
 	("/refresh", "Manually refresh the timeline."),
+	("/sync username", "Synchronize your 'following' with the given account. Use with caution, it will unfollow people and might get you blocked from the API!"),
 	#("/lists", "Show your lists."),
 	#("/createlist", "Show a dialog to create a new list."),
 	("/help", "Show this help."),
