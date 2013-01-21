@@ -108,6 +108,7 @@ class var:
 	verifier_prompt_delay = 5
 	beep = False
 	popups = True
+	mark_deleted = True # If True, mark deleted tweets and direct messages with red color, else delete them from the feed
 	short_code_length = 2
 	short_code_characters = u"abcdefghijklmnopqrstuvwxyz0123456789"
 	min_tweets_to_keep = ((len(short_code_characters) ** short_code_length) / 2)
@@ -154,4 +155,6 @@ class var:
 		('highlighted', 'light green', 'default'),
 		('warning', 'yellow', 'default'),
 		('error', 'light red', 'default'),
+		('deleted', 'light red', 'default'),
+		('deleted mention', 'light red, bold', 'default', 'bold'),
 	]

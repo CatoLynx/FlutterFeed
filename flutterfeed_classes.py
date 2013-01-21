@@ -1139,7 +1139,10 @@ class Client:
 				data = self.get_data(str(status_id))
 				if data:
 					short_code, tweet_id, del_username, text, in_reply_to, _tweet = data
-					self.delete_line(short_code)
+					if config.var.mark_deleted:
+						self.replace_attribute(short_code, [("tweet", "deleted"), ("highlighted", "deleted"), ("mention", "deleted mention")])
+					else:
+						self.delete_line(short_code)
 					self.feed_refresh()
 					if self.redraw_from_thread:
 						self.redraw()
@@ -1149,7 +1152,10 @@ class Client:
 				data = self.get_data(str(message_id))
 				if data:
 					short_code, message_id, del_username, text, in_reply_to, _message = data
-					self.delete_line(short_code)
+					if config.var.mark_deleted:
+						self.replace_attribute(short_code, [("tweet", "deleted"), ("highlighted", "deleted"), ("mention", "deleted mention")])
+					else:
+						self.delete_line(short_code)
 					self.feed_refresh()
 					if self.redraw_from_thread:
 						self.redraw()
