@@ -100,7 +100,7 @@ class system:
 	twitlonger_api_key = tokens.twitlonger_api_key
 	twextender_api_key = tokens.twextender_api_key
 	stream_security = True
-	notification_icon = "icon.png"
+	notification_icon = "icon.jpg"
 	default_account_name = "default"
 
 class var:
