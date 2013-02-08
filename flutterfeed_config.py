@@ -6,11 +6,7 @@ import flutterfeed_tokens as tokens
 
 class api:
 	api_host = "api.twitter.com"
-	api_root = "/1"
-	retry_count = 5
-	retry_delay = 5
-	retry_errors = [500, 502, 503, 504]
-	search_host = "search.twitter.com"
+	api_root = "/1.1/"
 	secure = True
 
 class commands:
@@ -85,11 +81,10 @@ class oauth:
 	consumer_secret = tokens.consumer_secret
 
 class system:
-	version = "1.0"
+	version = "1.1"
 	client_name = "FlutterFeed"
 	client_description = "A CLI Twitter client for Linux written in Python."
 	db_file = ".flutterfeed/flutterdatabase.db"
-	stream_timeout = 60
 	stream_reconnect_delay = 10
 	statusbar_loading_delay = 1
 	statusbar_update_interval_left = 300

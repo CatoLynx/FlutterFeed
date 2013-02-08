@@ -31,7 +31,7 @@ import locale
 import sys
 import thread
 import traceback
-import tweepy
+import tweetpony
 import urwid
 #import urwid.html_fragment
 
@@ -55,9 +55,9 @@ def main():
 	client.login()
 	if args.tweet is not None:
 		try:
-			client.api.update_status(args.tweet)
-		except tweepy.error.TweepError, err:
-			print red(strings.api_error % err)
+			client.api.update_status(status = args.tweet)
+		except tweetpony.APIError as err:
+			print red(strings.api_error % str(err))
 		raise classes.ClientQuit
 	thread.start_new_thread(client.statusbar_update, ())
 	client.start_ui()

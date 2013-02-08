@@ -162,7 +162,7 @@ v1.0
 - Fixed dialog text alignment with latest Urwid version
 - Changes to startup text
 
-v1.0.1
+v1.1
 - Removed unneccessary rate limit status check (won't work with API v1.1 anymore anyway)
 - Exposed more API configuration in config.py
 - Removed Notification popup when favoriting / unfavoriting a tweet (you'll see that the operation succeeded when the "loading" indicator disappears and there's no error message)
@@ -172,3 +172,4 @@ v1.0.1
 - Now printing the authentication URL in case there's now webbrowser installed
 - Made dialog and notification text editable (at least in theory)
 - Added a "sync" command to make your following list identical to that of another user (USE WITH CAUTION!)
+- Switched from tweepy to TweetPony and therefore to API 1.1 (like the version number)
