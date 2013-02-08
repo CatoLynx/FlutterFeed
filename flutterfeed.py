@@ -57,7 +57,7 @@ def main():
 		try:
 			client.api.update_status(status = args.tweet)
 		except tweetpony.APIError as err:
-			print red(strings.api_error % str(err))
+			print red(strings.api_error % (err.code, err.description))
 		raise classes.ClientQuit
 	thread.start_new_thread(client.statusbar_update, ())
 	client.start_ui()

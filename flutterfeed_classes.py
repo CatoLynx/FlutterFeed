@@ -8,7 +8,6 @@ import flutterfeed_config as config
 import flutterfeed_plugins as plugins
 import flutterfeed_strings as strings
 import base64
-import locale
 import os
 import pickle
 import re
@@ -292,7 +291,7 @@ class Client:
 		try:
 			self.api = tweetpony.API(config.oauth.consumer_key, config.oauth.consumer_secret, access_token_key, access_token_secret, host = config.api.api_host, root = config.api.api_root, secure = config.api.secure)
 		except tweetpony.APIError as err:
-			print red(strings.api_error % str(err))
+			print red(strings.api_error % (err.code, err.description))
 			sys.exit(1)
 		
 		self.twitlonger_api = twitlonger.API(config.system.twitlonger_application_name, config.system.twitlonger_api_key)
@@ -557,7 +556,7 @@ class Client:
 					try:
 						tweet = self.api.update_status(status = data, in_reply_to_status_id = in_reply_to)
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						return False
 					else:
 						if twitlonger_used:
@@ -565,7 +564,7 @@ class Client:
 				else:
 					return False
 			else:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				return False
 		return tweet"""
 	
@@ -593,12 +592,12 @@ class Client:
 					try:
 						tweet = self.api.update_status(status = data, in_reply_to_status_id = in_reply_to)
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						return False
 				else:
 					return False
 			else:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				return False
 		return tweet
 	
@@ -816,7 +815,7 @@ class Client:
 				self.code_db.commit()
 				return short_code
 		except:
-			sys.exit(traceback.format_exc())
+			return False
 	
 	def get_replies(self, identifier):
 		identifier = str(identifier)
@@ -1134,8 +1133,8 @@ class Client:
 						self.feed_refresh()
 						if self.redraw_from_thread:
 							self.redraw()
-				elif 'message' in event:
-					message_id, user_id = plugins.on_direct_message_delete(self, event.message.id, event.message.user_id)
+				elif 'direct_message' in event:
+					message_id, user_id = plugins.on_direct_message_delete(self, event.direct_message.id, event.direct_message.user_id)
 					data = self.get_data(str(message_id))
 					if data:
 						short_code, message_id, del_username, text, in_reply_to, _message = data
@@ -1233,7 +1232,7 @@ class Client:
 							if "permissible" in err.reason:
 								self.info_dialog(strings.retweet_failed)
 							else:
-								self.info_dialog(strings.api_error % str(err))
+								self.info_dialog(strings.api_error % (err.code, err.description))
 								clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1257,7 +1256,7 @@ class Client:
 						self.replace_attribute(short_code, [("tweet", "favorite"), ("highlighted", "favorite"), ("mention", "favorite mention")])
 						# self.notification(strings.favorited % (tweet_preview, tweet_author))
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1281,7 +1280,7 @@ class Client:
 						self.replace_attribute(short_code, [("favorite", "tweet"), ("highlighted", "favorite"), ("favorite mention", "mention")])
 						# self.notification(strings.unfavorited % (tweet_preview, tweet_author))
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1295,7 +1294,7 @@ class Client:
 					self.api.follow(screen_name = data_array[0])
 					self.notification(strings.followed % data)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1306,7 +1305,7 @@ class Client:
 					self.api.unfollow(screen_name = data_array[0])
 					self.notification(strings.unfollowed % data)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1331,7 +1330,7 @@ class Client:
 					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.profile:
 			if has_data:
@@ -1372,12 +1371,12 @@ class Client:
 								self.me = self.api.update_profile(name = entries[0], location = entries[1], url = entries[2], description = entries[3])
 								self.notification(strings.profile_updated)
 							except tweetpony.APIError as err:
-								self.info_dialog(strings.api_error % str(err))
+								self.info_dialog(strings.api_error % (err.code, err.description))
 								clear = False
 				else:
 					self.info_dialog(u"\n".join(lines))
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.reply:
 			if has_data:
@@ -1420,14 +1419,14 @@ class Client:
 				else:
 					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
-					action = self.dialog(strings.mention_select_action, [strings.reply, strings.view_conversation], None, None)['button']
-					if action == strings.reply:
+					action = self.dialog(strings.mention_select_action, [strings.action_reply, strings.view_conversation], None, None)['button']
+					if action == strings.action_reply:
 						self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.reply, choice))
 					else:
 						self.cmdline_content.set_edit_text(u"%s %s" % (config.commands.conversation, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.conversation:
 			if has_data:
@@ -1478,7 +1477,7 @@ class Client:
 							self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.replyall, choice))
 							self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1507,7 +1506,7 @@ class Client:
 					elif not(rel1) and not(rel2):
 						self.info_dialog(strings.rel_none % (user1, user2))
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1528,7 +1527,7 @@ class Client:
 							tweet_preview = tweet_text if len(tweet_text) <= config.var.tweet_preview_length else tweet_text[:config.var.tweet_preview_length] + u" […]"
 							self.notification(strings.deleted % tweet_preview)
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1589,7 +1588,7 @@ class Client:
 						lines.append(strings.dump_source % tweet.source)
 						self.info_dialog(u"\n".join(lines))
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.invalid_short_code % (short_code, command, data))
@@ -1607,7 +1606,7 @@ class Client:
 				else:
 					self.cmdline_content.set_edit_text(u" %s" % choice)
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.clear:
 			self.clear_feed()
@@ -1810,7 +1809,7 @@ class Client:
 					self.cmdline_content.set_edit_text(u"%s %s " % (config.commands.message, choice))
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.message:
 			if has_data:
@@ -1827,10 +1826,10 @@ class Client:
 					else:
 						sender = identifier
 					try:
-						message = self.api.send_message(user = sender, text = strings.message % text)
+						message = self.api.send_message(screen_name = sender, text = strings.message % text)
 						self.add_direct_message(self.get_code(str(message.id), message.recipient.screen_name, message.text, message, None), strings.sent_message_prefix + message.recipient.screen_name, text, True)
 					except tweetpony.APIError as err:
-						self.info_dialog(strings.api_error % str(err))
+						self.info_dialog(strings.api_error % (err.code, err.description))
 						clear = False
 				else:
 					self.info_dialog(strings.data_required % command)
@@ -1844,7 +1843,7 @@ class Client:
 					self.api.block(screen_name = data_array[0])
 					self.notification(strings.blocked % data)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1855,7 +1854,7 @@ class Client:
 					self.api.unblock(screen_name = data_array[0])
 					self.notification(strings.unblocked % data)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1866,7 +1865,7 @@ class Client:
 					self.api.report_spam(screen_name = data_array[0])
 					self.notification(strings.reported_as_spam % data)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 			else:
 				self.info_dialog(strings.data_required % command)
@@ -1914,7 +1913,7 @@ class Client:
 									selected_list = self.api.remove_from_list(slug = selected_list.id, id = selected_user.id)
 									self.notification(strings.list_member_removed % (selected_user.screen_name, html_unescape(unicode(selected_list.name))))
 								except tweetpony.APIError as err:
-									self.info_dialog(strings.api_error % str(err))
+									self.info_dialog(strings.api_error % (err.code, err.description))
 									clear = False
 					elif action == strings.button_edit:
 						entries = self.dialog(strings.edit_list_header % html_unescape(unicode(selected_list.name)), [strings.button_ok], [(strings.caption_name, html_unescape(unicode(selected_list.name))), (strings.caption_privacy, selected_list.mode), (strings.caption_description, html_unescape(unicode(selected_list.description)))], None, True)['texts']
@@ -1923,7 +1922,7 @@ class Client:
 								selected_list = self.api.update_list(slug = selected_list.id, name = entries[0], mode = entries[1], description = entries[2])
 								self.notification(strings.list_updated % html_unescape(unicode(selected_list.name)))
 							except tweetpony.APIError as err:
-								self.info_dialog(strings.api_error % str(err))
+								self.info_dialog(strings.api_error % (err.code, err.description))
 								clear = False
 					elif action == strings.button_add_member:
 						username = self.input_dialog(strings.add_list_member % html_unescape(unicode(selected_list.name)), strings.caption_username)
@@ -1932,7 +1931,7 @@ class Client:
 							selected_list = self.api.add_to_list(slug = selected_list.id, id = user.id)
 							self.notification(strings.list_member_added % (user.screen_name, html_unescape(unicode(selected_list.name))))
 						except tweetpony.APIError as err:
-							self.info_dialog(strings.api_error % str(err))
+							self.info_dialog(strings.api_error % (err.code, err.description))
 							clear = False
 					elif action == strings.button_delete_list:
 						if self.yes_no_dialog(strings.delete_list % html_unescape(unicode(selected_list.name))):
@@ -1940,11 +1939,11 @@ class Client:
 								selected_list = self.api.delete_list(slug = selected_list.id)
 								self.notification(strings.list_deleted % html_unescape(unicode(selected_list.name)))
 							except tweetpony.APIError as err:
-								self.info_dialog(strings.api_error % str(err))
+								self.info_dialog(strings.api_error % (err.code, err.description))
 								clear = False
 					#TODO: Could be improved / extended
 			except tweetpony.APIError as err:
-				self.info_dialog(strings.api_error % str(err))
+				self.info_dialog(strings.api_error % (err.code, err.description))
 				clear = False
 		elif command == config.commands.create_list and False:
 			entries = self.dialog(strings.create_list_header, [strings.button_ok], [(strings.caption_name, u""), (strings.caption_privacy, u""), (strings.caption_description, u"")], None, True)['texts']
@@ -1953,7 +1952,7 @@ class Client:
 					created_list = self.api.create_list(name = entries[0], mode = entries[1], description = entries[2])
 					self.notification(strings.list_created % html_unescape(unicode(created_list.name)))
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 		elif command == config.commands.refresh:
 			last_tweet_id = self.get_last_data()
@@ -1968,7 +1967,7 @@ class Client:
 					source_following = self.api.friends_ids(screen_name = data_array[0])
 					target_following = self.api.friends_ids(user_id = self.me.id)
 				except tweetpony.APIError as err:
-					self.info_dialog(strings.api_error % str(err))
+					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
 				follow = [id for id in source_following if id not in target_following]
 				unfollow = [id for id in target_following if id not in source_following]
@@ -1982,7 +1981,7 @@ class Client:
 							# self.cmdline_content.set_caption(('cmdline bold', strings.prompt_percentage % progress))
 							self.api.unfollow(user_id = id)
 						except tweetpony.APIError as err:
-							self.info_dialog(strings.api_error % str(err))
+							self.info_dialog(strings.api_error % (err.code, err.description))
 							clear = False
 					for id in follow:
 						try:
@@ -1991,7 +1990,7 @@ class Client:
 							# self.cmdline_content.set_caption(('cmdline bold', strings.prompt_percentage % progress))
 							self.api.follow(user_id = id)
 						except tweetpony.APIError as err:
-							self.info_dialog(strings.api_error % str(err))
+							self.info_dialog(strings.api_error % (err.code, err.description))
 							clear = False
 					self.info_dialog(strings.sync_complete % total_actions)
 			else:
@@ -2020,7 +2019,7 @@ class Client:
 			raise ClientQuit
 	
 	def api_error(self, err, is_fatal = False):
-		print red(strings.api_error % str(err))
+		print red(strings.api_error % (err.code, err.description))
 		if is_fatal:
 			sys.exit(1)
 # Comment to push that swaggy shit up one line.
