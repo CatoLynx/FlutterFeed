@@ -538,7 +538,7 @@ class Client:
 		try:
 			tweet = self.api.update_status(status = data, in_reply_to_status_id = in_reply_to)
 		except tweetpony.APIError as err:
-			if u"140" in err.reason:
+			if u"140" in err.message:
 				if config.var.always_extend_tweet or self.yes_no_dialog(strings.use_twitlonger):
 					if not(self.me.protected) or (self.me.protected and self.yes_no_dialog(strings.twitlonger_protected_account)):
 						twitlonger_post = self.twitlonger_api.post_tweet(self.me.screen_name, data, in_reply_to, in_reply_to_user)
@@ -574,7 +574,7 @@ class Client:
 		try:
 			tweet = self.api.update_status(status = data, in_reply_to_status_id = in_reply_to)
 		except tweetpony.APIError as err:
-			if u"140" in err.reason:
+			if u"140" in err.message:
 				if config.var.always_extend_tweet or self.yes_no_dialog(strings.use_twextender):
 					if not(self.me.protected) or (self.me.protected and self.yes_no_dialog(strings.twextender_protected_account)):
 						twextender_post = self.twextender_api.post_tweet(self.me.screen_name, data, in_reply_to_user, in_reply_to)
@@ -1149,10 +1149,10 @@ class Client:
 		stream_processor = FlutterProcessor(self.api)
 		while True:
 			try:
-				if self.stream_keywords or self.stream_user_ids or self.stream_locations:
+				if self.stream_user_ids or self.stream_locations:
 					self.api.filter_stream(track = self.stream_keywords + [u"@" + self.me.screen_name], follow = self.stream_user_ids + [self.me.id], locations = self.stream_locations, processor = stream_processor)
 				else:
-					self.api.user_stream(processor = stream_processor)
+					self.api.user_stream(processor = stream_processor, track = self.stream_keywords)
 			except SSLError:
 				#self.add_error(strings.timeout % config.system.stream_reconnect_delay)
 				#time.sleep(config.system.stream_reconnect_delay)
@@ -1229,7 +1229,7 @@ class Client:
 						try:
 							self.api.retweet(id = tweet_id)
 						except tweetpony.APIError as err:
-							if "permissible" in err.reason:
+							if "permissible" in err.message:
 								self.info_dialog(strings.retweet_failed)
 							else:
 								self.info_dialog(strings.api_error % (err.code, err.description))
@@ -2019,7 +2019,8 @@ class Client:
 			raise ClientQuit
 	
 	def api_error(self, err, is_fatal = False):
-		print red(strings.api_error % (err.code, err.description))
+		sys.stdout.write("\n" + red(strings.api_error % (err.code, err.description)) + "\n")
+		sys.stdout.flush()
 		if is_fatal:
 			sys.exit(1)
 # Comment to push that swaggy shit up one line.
