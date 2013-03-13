@@ -81,10 +81,11 @@ class oauth:
 	consumer_secret = tokens.consumer_secret
 
 class system:
-	version = "1.1"
+	version = "1.1.1"
 	client_name = "FlutterFeed"
 	client_description = "A CLI Twitter client for Linux written in Python."
 	db_file = ".flutterfeed/flutterdatabase.db"
+	cache_file = ".flutterfeed/cache.json"
 	stream_reconnect_delay = 10
 	statusbar_loading_delay = 1
 	statusbar_update_interval_left = 300

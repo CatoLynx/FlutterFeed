@@ -2,12 +2,9 @@
 # Class definitions and stuff like that
 # © 2012 Mezgrman
 
-from flutterfeed_functions import *
-from ssl import SSLError
-import flutterfeed_config as config
-import flutterfeed_plugins as plugins
-import flutterfeed_strings as strings
 import base64
+import datetime
+import json
 import os
 import pickle
 import re
@@ -20,6 +17,13 @@ import twextender
 import twitlonger
 import urllib2
 import urwid
+
+import flutterfeed_config as config
+import flutterfeed_plugins as plugins
+import flutterfeed_strings as strings
+
+from flutterfeed_functions import *
+from ssl import SSLError
 
 try:
 	import pynotify
@@ -193,10 +197,22 @@ class Client:
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `highlighted_clients` (`client`)")
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `highlighted_regexes` (`regex`)")
 		self.db.commit()
-		self.code_db = sqlite3.connect(":memory:", check_same_thread = False)
-		self.code_db_cursor = self.code_db.cursor()
-		self.code_db_cursor.execute("CREATE TABLE `codes` (`code_id` INTEGER PRIMARY KEY, `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj`)")
-		self.code_db.commit()
+		self.cache_db = sqlite3.connect(":memory:", check_same_thread = False)
+		self.cache_db_cursor = self.cache_db.cursor()
+		self.cache_db_cursor.execute("CREATE TABLE `codes` (`code_id` INTEGER PRIMARY KEY, `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj`)")
+		self.cache_db.commit()
+		
+		self.cache_file = os.path.join(os.path.expanduser("~"), config.system.cache_file)
+		dirname = os.path.dirname(self.cache_file)
+		if not os.path.exists(dirname):
+			os.makedirs(dirname)
+		if not os.path.exists(self.cache_file):
+			open(self.cache_file, 'w').close()
+		try:
+			self.cache = json.load(open(self.cache_file, 'r'))
+		except ValueError:
+			self.cache = {}
+		
 		self.cached_tweet_count = 0
 		self.notification_count = 0
 		self.filtered_words = []
@@ -296,10 +312,38 @@ class Client:
 		
 		self.twitlonger_api = twitlonger.API(config.system.twitlonger_application_name, config.system.twitlonger_api_key)
 		self.twextender_api = twextender.API(config.system.twextender_api_key)
+		self.load_api_configuration()
 	
 	def logout(self):
 		self.db_cursor.execute("DELETE FROM `access_token` WHERE `name` = ?", (self.account,))
 		self.db.commit()
+	
+	def load_api_configuration(self):
+		config = self.cache.get('config', {})
+		now = datetime.datetime.now()
+		timestamp = datetime.datetime.fromtimestamp(config.get('timestamp', 0))
+		if (now - timestamp).total_seconds() >= (24 * 60 * 60):
+			try:
+				new_config = self.api.configuration()
+			except tweetpony.APIError as err:
+				return False
+			else:
+				self.cache['config'] = {'timestamp': int(now.strftime("%s")), 'data': new_config}
+	
+	def build_character_counter(self, text):
+		words = text.strip().split(" ")
+		
+		for i in range(len(words)):
+			word = words[i]
+			if i == 0 and word.startswith(config.commands.cmd_prefix):
+				words[i] = " " * 0
+			elif word.startswith("http://"):
+				words[i] = " " * self.cache['config']['data']['short_url_length']
+			elif word.startswith("https://"):
+				words[i] = " " * self.cache['config']['data']['short_url_length_https']
+		
+		value = 140 - len(" ".join(words))
+		return value
 	
 	def check_latest_version(self):
 		try:
@@ -474,7 +518,7 @@ class Client:
 		keys = True
 		while True:
 			try:
-				self.cmdline_content.set_caption(('cmdline bold', strings.prompt % (140 - len(self.cmdline_content.get_edit_text()))))
+				self.cmdline_content.set_caption(('cmdline bold', strings.prompt % self.build_character_counter(self.cmdline_content.get_edit_text())))
 				if keys:
 					self.redraw()
 				keys = self.ui.get_input()
@@ -482,7 +526,7 @@ class Client:
 					self.dim = self.ui.get_cols_rows()
 				elif config.system.exit_key in keys:
 					if self.yes_no_dialog(strings.quit_confirmation):
-						raise ClientQuit
+						self.quit()
 				elif config.system.submit_key in keys:
 					raw_data = self.cmdline_content.get_edit_text()
 					self.last_command = raw_data
@@ -765,26 +809,26 @@ class Client:
 		identifier = str(identifier)
 		try:
 			if len(identifier) == config.var.short_code_length:
-				self.code_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `code` = ?", (identifier,))
+				self.cache_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `code` = ?", (identifier,))
 			else:
-				self.code_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `ID` = ?", (identifier,))
-			data = self.code_db_cursor.fetchone()
+				self.cache_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `ID` = ?", (identifier,))
+			data = self.cache_db_cursor.fetchone()
 			return(data[0], long(data[1]), data[2], data[3], data[4], pickle.loads(base64.b64decode(data[5])))
 		except:
 			return False
 	
 	def get_last_data(self):
 		try:
-			self.code_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` ORDER BY `ID` DESC LIMIT 1")
-			data = self.code_db_cursor.fetchone()
+			self.cache_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` ORDER BY `ID` DESC LIMIT 1")
+			data = self.cache_db_cursor.fetchone()
 			return(data[0], long(data[1]), data[2], data[3], data[4], pickle.loads(base64.b64decode(data[5])))
 		except:
 			return False
 	
 	def get_tweet_id(self, code):
 		try:
-			self.code_db_cursor.execute("SELECT `ID` FROM `codes` WHERE `code` = ?", (code,))
-			tweet_id = long(self.code_db_cursor.fetchone()[0])
+			self.cache_db_cursor.execute("SELECT `ID` FROM `codes` WHERE `code` = ?", (code,))
+			tweet_id = long(self.cache_db_cursor.fetchone()[0])
 			return tweet_id
 		except:
 			return False
@@ -794,12 +838,12 @@ class Client:
 			in_reply_to = str(in_reply_to)
 		try:
 			try:
-				self.code_db_cursor.execute("SELECT `code` FROM `codes` WHERE `ID` = ?", (tweet_id,))
-				short_code = self.code_db_cursor.fetchone()[0]
+				self.cache_db_cursor.execute("SELECT `code` FROM `codes` WHERE `ID` = ?", (tweet_id,))
+				short_code = self.cache_db_cursor.fetchone()[0]
 				return short_code
 			except:
-				self.code_db_cursor.execute("SELECT `code` FROM `codes` ORDER BY `code_id` DESC")
-				rows = self.code_db_cursor.fetchall()
+				self.cache_db_cursor.execute("SELECT `code` FROM `codes` ORDER BY `code_id` DESC")
+				rows = self.cache_db_cursor.fetchall()
 				self.cached_tweet_count = len(rows)
 				rows = rows[:config.var.min_tweets_to_keep]
 				codes = []
@@ -810,9 +854,9 @@ class Client:
 					short_code = gen_short_code(tweet_id)
 					code_in_use = (short_code in codes)
 				self.delete_line(short_code)
-				self.code_db_cursor.execute("DELETE FROM `codes` WHERE `code` = ?", (short_code,))
-				self.code_db_cursor.execute("INSERT INTO `codes` (`code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj`) VALUES (?, ?, ?, ?, ?, ?)", (short_code, tweet_id, author, html_unescape(text.replace("\n", " ")), in_reply_to, base64.b64encode(pickle.dumps(tweet_obj))))
-				self.code_db.commit()
+				self.cache_db_cursor.execute("DELETE FROM `codes` WHERE `code` = ?", (short_code,))
+				self.cache_db_cursor.execute("INSERT INTO `codes` (`code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj`) VALUES (?, ?, ?, ?, ?, ?)", (short_code, tweet_id, author, html_unescape(text.replace("\n", " ")), in_reply_to, base64.b64encode(pickle.dumps(tweet_obj))))
+				self.cache_db.commit()
 				return short_code
 		except:
 			return False
@@ -826,8 +870,8 @@ class Client:
 					return False
 			else:
 				tweet_id = identifier
-			self.code_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `in_reply_to` = ?", (tweet_id,))
-			tweets = [list(item) for item in self.code_db_cursor.fetchall()]
+			self.cache_db_cursor.execute("SELECT `code`, `ID`, `author`, `text`, `in_reply_to`, `tweet_obj` FROM `codes` WHERE `in_reply_to` = ?", (tweet_id,))
+			tweets = [list(item) for item in self.cache_db_cursor.fetchall()]
 			for i in range(len(tweets)):
 				tweets[i][5] = pickle.loads(base64.b64decode(tweets[i][5]))
 			return tweets
@@ -2010,8 +2054,9 @@ class Client:
 		else:
 			try:
 				plugins.on_exit(self)
-				self.code_db_cursor.close()
-				self.code_db.close()
+				json.dump(self.cache, open(self.cache_file, 'w'))
+				self.cache_db_cursor.close()
+				self.cache_db.close()
 				self.db_cursor.close()
 				self.db.close()
 			except:
