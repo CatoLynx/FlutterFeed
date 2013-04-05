@@ -2008,13 +2008,14 @@ class Client:
 		elif command == config.commands.sync_following:
 			if has_data:
 				try:
-					source_following = self.api.friends_ids(screen_name = data_array[0])
-					target_following = self.api.friends_ids(user_id = self.me.id)
+					source_id = self.api.get_user(screen_name = data_array[0]).id
+					source_following = self.api.friends_ids(user_id = source_id)['ids']
+					target_following = self.api.friends_ids(user_id = self.me.id)['ids']
 				except tweetpony.APIError as err:
 					self.info_dialog(strings.api_error % (err.code, err.description))
 					clear = False
-				follow = [id for id in source_following if id not in target_following]
-				unfollow = [id for id in target_following if id not in source_following]
+				follow = [id for id in source_following if id != self.me.id and id not in target_following]
+				unfollow = [id for id in target_following if id != source_id and id not in source_following]
 				total_actions = len(follow) + len(unfollow)
 				if self.yes_no_dialog(strings.sync_confirmation % (len(unfollow), len(follow), total_actions)):
 					i = 0
@@ -2026,7 +2027,7 @@ class Client:
 							self.api.unfollow(user_id = id)
 						except tweetpony.APIError as err:
 							self.info_dialog(strings.api_error % (err.code, err.description))
-							clear = False
+							#clear = False
 					for id in follow:
 						try:
 							i += 1
@@ -2035,7 +2036,7 @@ class Client:
 							self.api.follow(user_id = id)
 						except tweetpony.APIError as err:
 							self.info_dialog(strings.api_error % (err.code, err.description))
-							clear = False
+							#clear = False
 					self.info_dialog(strings.sync_complete % total_actions)
 			else:
 				self.info_dialog(strings.data_required % command)
