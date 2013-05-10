@@ -65,6 +65,7 @@ class commands:
 	list_highlighted_regexes = cmd_prefix + u"highlightedregexes"
 	refresh = cmd_prefix + u"refresh"
 	sync_following = cmd_prefix + u"sync"
+	sync_profile = cmd_prefix + u"syncprofile"
 
 class geometry:
 	statusbar_height = 1

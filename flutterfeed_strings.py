@@ -145,6 +145,8 @@ args_database = u"The database file to use"
 args_account = u"The account / profile to use. If not specified, use the default account. If no account with the given name is found, it is created."
 sync_confirmation = u"This action will unfollow %i and follow %i people, performing %i API calls.\n\nAre you sure you want to continue?"
 sync_complete = u"Synchronization complete. %i actions performed."
+sync_profile_confirmation = u"This action will copy the profile data of @%(screen_name)s to your profile.\n\nAre you sure you want to continue?"
+sync_profile_complete = u"Profile synchronization complete."
 
 # More 'internal' strings
 tweet_prefix = u"%s: "
@@ -221,6 +223,7 @@ help_entries = [
 	("/afkoff", "Turn off AFK mode. All new tweets and events are shown."),
 	("/refresh", "Manually refresh the timeline."),
 	("/sync username", "Synchronize your 'following' with the given account. Use with caution, it will unfollow people and might get you blocked from the API!"),
+	("/syncprofile username", "Synchronize your profile with the given account. Use wisely, as it is effectively a way to impersonate someone else!"),
 	#("/lists", "Show your lists."),
 	#("/createlist", "Show a dialog to create a new list."),
 	("/help", "Show this help."),

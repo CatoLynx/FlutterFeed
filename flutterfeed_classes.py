@@ -8,6 +8,7 @@ import json
 import os
 import pickle
 import re
+import requests
 import sqlite3
 import sys
 import time
@@ -24,6 +25,7 @@ import flutterfeed_strings as strings
 
 from flutterfeed_functions import *
 from ssl import SSLError
+from StringIO import StringIO
 
 try:
 	import pynotify
@@ -2038,6 +2040,25 @@ class Client:
 							self.info_dialog(strings.api_error % (err.code, err.description))
 							#clear = False
 					self.info_dialog(strings.sync_complete % total_actions)
+			else:
+				self.info_dialog(strings.data_required % command)
+				clear = False
+		elif command == config.commands.sync_profile:
+			if has_data:
+				try:
+					source = self.api.get_user(screen_name = data_array[0])
+				except tweetpony.APIError as err:
+					self.info_dialog(strings.api_error % (err.code, err.description))
+					clear = False
+				if self.yes_no_dialog(strings.sync_profile_confirmation % source):
+					try:
+						self.api.update_profile(name = source.name, description = source.description, location = source.location, url = source.url)
+						response = requests.get(source.profile_image_url.replace("_normal", "_bigger"))
+						self.api.update_profile_image(image = StringIO(response.content))
+					except tweetpony.APIError as err:
+						self.info_dialog(strings.api_error % (err.code, err.description))
+						clear = False
+					self.info_dialog(strings.sync_profile_complete)
 			else:
 				self.info_dialog(strings.data_required % command)
 				clear = False
