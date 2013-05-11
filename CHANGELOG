@@ -183,3 +183,6 @@ v1.1.2
 
 v1.1.3
 - Added profile synchronization (use wisely as it effectively is a way to impersonate someone else)
+
+v1.1.4
+- Silenced errors during "following" synchronization

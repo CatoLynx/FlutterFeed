@@ -2021,6 +2021,7 @@ class Client:
 				total_actions = len(follow) + len(unfollow)
 				if self.yes_no_dialog(strings.sync_confirmation % (len(unfollow), len(follow), total_actions)):
 					i = 0
+					errors = 0
 					for id in unfollow:
 						try:
 							i += 1
@@ -2037,9 +2038,10 @@ class Client:
 							# self.cmdline_content.set_caption(('cmdline bold', strings.prompt_percentage % progress))
 							self.api.follow(user_id = id)
 						except tweetpony.APIError as err:
-							self.info_dialog(strings.api_error % (err.code, err.description))
+							# self.info_dialog(strings.api_error % (err.code, err.description))
+							errors += 1
 							#clear = False
-					self.info_dialog(strings.sync_complete % total_actions)
+					self.info_dialog(strings.sync_complete % (total_actions, errors))
 			else:
 				self.info_dialog(strings.data_required % command)
 				clear = False

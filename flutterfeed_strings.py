@@ -144,7 +144,7 @@ args_locations = u"Comma separated list of location bounding box coordinates to 
 args_database = u"The database file to use"
 args_account = u"The account / profile to use. If not specified, use the default account. If no account with the given name is found, it is created."
 sync_confirmation = u"This action will unfollow %i and follow %i people, performing %i API calls.\n\nAre you sure you want to continue?"
-sync_complete = u"Synchronization complete. %i actions performed."
+sync_complete = u"Synchronization complete. %i actions performed, %i errors."
 sync_profile_confirmation = u"This action will copy the profile data of @%(screen_name)s to your profile.\n\nAre you sure you want to continue?"
 sync_profile_complete = u"Profile synchronization complete."
 
