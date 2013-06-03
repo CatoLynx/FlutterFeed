@@ -550,33 +550,36 @@ class Client:
 				self.cmdline_content.set_edit_text(u"")
 	
 	def statusbar_update(self):
-		time.sleep(config.system.statusbar_loading_delay)
-		self.me_update_interval = config.system.statusbar_update_interval_left + 1
-		while True:
-			if self.me_update_interval > config.system.statusbar_update_interval_left:
-				try:
-					self.me = plugins.on_statusbar_update_left(self, self.api.verify_credentials())
-				except tweetpony.APIError as err:
-					return err
-				self.me_update_interval = 0
-			
-			if self.me_update_interval + config.system.statusbar_update_interval_right > config.system.statusbar_update_interval_left:
-				countdown = strings.countdown_updating
-			else:
-				m, s = divmod(config.system.statusbar_update_interval_left - self.me_update_interval, 60)
-				countdown = strings.countdown % (m, s)
-			
-			left_text = strings.statusbar_left % {'username': self.me.screen_name, 'followers': self.me.followers_count, 'following': self.me.friends_count, 'tweets': self.me.statuses_count, 'favorites': self.me.favourites_count}
-			right_text = strings.statusbar_right % {'cached_tweets': self.cached_tweet_count, 'time': time.strftime(config.var.statusbar_time_format), 'countdown': countdown}
-			space = config.var.statusbar_spacing_character * (self.width - (len(left_text) + len(right_text)))
-			self.statusbar_content.set_text(('statusbar bold', left_text + space + right_text))
-			if self.notification_count > 0 and self.has_focus():
-				self.reset_notifications()
-			self.statusbar_refresh()
-			if self.redraw_from_thread:
-				self.redraw()
-			self.me_update_interval += config.system.statusbar_update_interval_right
-			time.sleep(config.system.statusbar_update_interval_right)
+		try:
+			time.sleep(config.system.statusbar_loading_delay)
+			self.me_update_interval = config.system.statusbar_update_interval_left + 1
+			while True:
+				if self.me_update_interval > config.system.statusbar_update_interval_left:
+					try:
+						self.me = plugins.on_statusbar_update_left(self, self.api.verify_credentials())
+					except tweetpony.APIError as err:
+						return err
+					self.me_update_interval = 0
+				
+				if self.me_update_interval + config.system.statusbar_update_interval_right > config.system.statusbar_update_interval_left:
+					countdown = strings.countdown_updating
+				else:
+					m, s = divmod(config.system.statusbar_update_interval_left - self.me_update_interval, 60)
+					countdown = strings.countdown % (m, s)
+				
+				left_text = strings.statusbar_left % {'username': self.me.screen_name, 'followers': self.me.followers_count, 'following': self.me.friends_count, 'tweets': self.me.statuses_count, 'favorites': self.me.favourites_count}
+				right_text = strings.statusbar_right % {'cached_tweets': self.cached_tweet_count, 'time': time.strftime(config.var.statusbar_time_format), 'countdown': countdown}
+				space = config.var.statusbar_spacing_character * (self.width - (len(left_text) + len(right_text)))
+				self.statusbar_content.set_text(('statusbar bold', left_text + space + right_text))
+				if self.notification_count > 0 and self.has_focus():
+					self.reset_notifications()
+				self.statusbar_refresh()
+				if self.redraw_from_thread:
+					self.redraw()
+				self.me_update_interval += config.system.statusbar_update_interval_right
+				time.sleep(config.system.statusbar_update_interval_right)
+		except:
+			passs
 	
 	"""def post_tweet(self, data, in_reply_to = None, in_reply_to_user = None):
 		post = True
