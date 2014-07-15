@@ -543,6 +543,31 @@ class Client:
 						args = (command, data_array)
 						(command, data_array) = plugins.on_command(self, *args)
 						self.process_command(command, data_array)
+				# some Unix keyboard shortcuts (nilsding)
+				# ^U -> delete from cursor to start of line
+				elif "ctrl u" in keys:
+					edit_text = self.cmdline_content.get_edit_text()
+					edit_pos = self.cmdline_content.edit_pos
+					self.cmdline_content.set_edit_text(edit_text[edit_pos:len(edit_text)])
+					self.cmdline_content.set_edit_pos(0)
+				# ^W -> delete word before the cursor
+				elif "ctrl w" in keys:
+					orig_text = self.cmdline_content.get_edit_text()
+					orig_point = self.cmdline_content.edit_pos
+					new_point = orig_point - 1
+					while new_point > 0 and orig_text[new_point] != ' ':
+						new_point -= 1
+					new_text = orig_text[:new_point] + orig_text[orig_point:]
+					self.cmdline_content.set_edit_text(new_text)
+					self.cmdline_content.set_edit_pos(new_point)
+				# ^H -> delete character before the cursor
+				# this seems to be implemented by most terminals
+				# ^A -> move cursor to start of the line
+				elif "ctrl a" in keys:
+					self.cmdline_content.set_edit_pos(0)
+				# ^E -> move cursor to end of the line
+				elif "ctrl e" in keys:
+					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
 				else:
 					for key in keys:
 						self.cmdline_content.keypress((1,), key)
