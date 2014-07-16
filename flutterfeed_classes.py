@@ -581,7 +581,7 @@ class Client:
 						self.db_cursor.execute("SELECT COUNT(*) FROM `cached_users` WHERE `screen_name` LIKE ?;", ("{0}%".format(user),))
 						count = self.db_cursor.fetchone()[0]
 						if count == 0:
-							self.add_warning(text="Autocomplete: No matches.")
+							self.add_warning(text="{0} {1}".format(strings.autocomplete_banner, strings.autocomplete_no_matches))
 						elif count == 1:
 							self.db_cursor.execute("SELECT `screen_name` FROM `cached_users` WHERE `screen_name` LIKE ? LIMIT 15;", ("{0}%".format(user),))
 							autocomp_user = self.db_cursor.fetchone()[0]
@@ -594,7 +594,7 @@ class Client:
 							self.db_cursor.execute("SELECT `screen_name` FROM `cached_users` WHERE `screen_name` LIKE ? LIMIT 15;", ("{0}%".format(user),))
 							users = self.db_cursor.fetchall()
 							users = ", ".join([x[0] for x in users])
-							self.add_text(text="Autocomplete: {0}".format(users), has_indent=True, color='light green')
+							self.add_text(text="{0} {1}".format(strings.autocomplete_banner, users), has_indent=True, color='light green')
 				else:
 					for key in keys:
 						self.cmdline_content.keypress((1,), key)
