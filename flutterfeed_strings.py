@@ -260,3 +260,6 @@ afk_mode_already_enabled = u"AFK mode is already enabled."
 afk_mode_not_enabled = u"AFK mode is not enabled."
 retweet_failed = u"You cannot retweet this tweet.\n\nIt might be from a protected user or you might have already retweeted it."
 feature_not_yet_implemented = u"This feature has not yet been implemented."
+
+autocomplete_banner = u"Autocomplete:"
+autocomplete_no_matches = u"No matches"

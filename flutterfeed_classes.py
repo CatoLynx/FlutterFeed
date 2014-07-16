@@ -188,7 +188,7 @@ class Client:
 				os.makedirs(dirname)
 		else:
 			db_file = args.database
-		self.db = sqlite3.connect(db_file)
+		self.db = sqlite3.connect(db_file, check_same_thread = False) # XXX
 		self.db_cursor = self.db.cursor()
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `filtered_words` (`word`)")
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `filtered_users` (`user`)")
@@ -198,6 +198,7 @@ class Client:
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `highlighted_users` (`user`)")
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `highlighted_clients` (`client`)")
 		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `highlighted_regexes` (`regex`)")
+		self.db_cursor.execute("CREATE TABLE IF NOT EXISTS `cached_users` (`id` INTEGER PRIMARY KEY, `user_id` NUMERIC, `screen_name` TEXT)")
 		self.db.commit()
 		self.cache_db = sqlite3.connect(":memory:", check_same_thread = False)
 		self.cache_db_cursor = self.cache_db.cursor()
@@ -568,6 +569,32 @@ class Client:
 				# ^E -> move cursor to end of the line
 				elif "ctrl e" in keys:
 					self.cmdline_content.set_edit_pos(len(self.cmdline_content.get_edit_text()))
+				# username autocompletion thing! (nilsding)
+				elif "tab" in keys:
+					orig_text = self.cmdline_content.get_edit_text()
+					orig_point = self.cmdline_content.edit_pos
+					start_point = orig_point - 1
+					while start_point > 0 and orig_text[start_point] != '@':
+						start_point -= 1
+					if orig_text[start_point] == '@':
+						user = orig_text[start_point + 1:orig_point]
+						self.db_cursor.execute("SELECT COUNT(*) FROM `cached_users` WHERE `screen_name` LIKE ?;", ("{0}%".format(user),))
+						count = self.db_cursor.fetchone()[0]
+						if count == 0:
+							self.add_warning(text="{0} {1}".format(strings.autocomplete_banner, strings.autocomplete_no_matches))
+						elif count == 1:
+							self.db_cursor.execute("SELECT `screen_name` FROM `cached_users` WHERE `screen_name` LIKE ? LIMIT 15;", ("{0}%".format(user),))
+							autocomp_user = self.db_cursor.fetchone()[0]
+							# insert complete screen_name into the cmdline at the current position and change the cursor position
+							new_text = orig_text[:start_point + 1] + autocomp_user + orig_text[orig_point:]
+							new_point = orig_point + len(autocomp_user) - len(user)
+							self.cmdline_content.set_edit_text(new_text)
+							self.cmdline_content.set_edit_pos(new_point)
+						else:
+							self.db_cursor.execute("SELECT `screen_name` FROM `cached_users` WHERE `screen_name` LIKE ? LIMIT 15;", ("{0}%".format(user),))
+							users = self.db_cursor.fetchall()
+							users = ", ".join([x[0] for x in users])
+							self.add_text(text="{0} {1}".format(strings.autocomplete_banner, users), has_indent=True, color='light green')
 				else:
 					for key in keys:
 						self.cmdline_content.keypress((1,), key)
@@ -1118,6 +1145,15 @@ class Client:
 		if status.user.id == self.me.id:
 			self.me = status.user
 			self.me_update_interval = config.system.statusbar_update_interval_left + 1
+		
+		# add the author's screen_name to the `cached_users` table in the database to provide autocompletion user names (nilsding)
+		self.db_cursor.execute("SELECT COUNT(*) FROM `cached_users` WHERE `user_id` = ?", (status.user.id,))
+		if self.db_cursor.fetchone()[0] == 0:
+			self.db_cursor.execute("INSERT INTO `cached_users` (`user_id`, `screen_name`) VALUES (?, ?)", (status.user.id, status.user.screen_name))
+		else:
+			self.db_cursor.execute("UPDATE `cached_users` SET `screen_name` = ? WHERE `user_id` = ?", (status.user.screen_name, status.user.id))
+		self.db.commit()
+		
 		text = html_unescape(status.text).replace(u"\n", u" ")
 		is_mention = False
 		if hasattr(status, 'entities'):
